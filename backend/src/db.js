@@ -11,11 +11,24 @@ function openDb(file = process.env.CAPU_DB || path.join(__dirname, '..', '..', '
   return db;
 }
 
-/** Ejecuta fn dentro de una transacción; revierte si lanza error. */
+const profundidad = new WeakMap();
+
+/** Ejecuta fn dentro de una transacción (admite anidamiento con SAVEPOINT); revierte si lanza error. */
 function transaction(db, fn) {
-  db.exec('BEGIN');
-  try { const r = fn(); db.exec('COMMIT'); return r; }
-  catch (e) { db.exec('ROLLBACK'); throw e; }
+  const nivel = profundidad.get(db) || 0;
+  const punto = `sp_${nivel}`;
+  db.exec(nivel === 0 ? 'BEGIN' : `SAVEPOINT ${punto}`);
+  profundidad.set(db, nivel + 1);
+  try {
+    const r = fn();
+    db.exec(nivel === 0 ? 'COMMIT' : `RELEASE ${punto}`);
+    return r;
+  } catch (e) {
+    db.exec(nivel === 0 ? 'ROLLBACK' : `ROLLBACK TO ${punto}; RELEASE ${punto}`);
+    throw e;
+  } finally {
+    profundidad.set(db, nivel);
+  }
 }
 
 module.exports = { openDb, transaction };

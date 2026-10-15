@@ -10,7 +10,8 @@ module.exports = function googleAdapter(accessToken, fetchFn = fetch) {
     if (!r.ok) throw Object.assign(new Error(`Google Classroom respondió ${r.status}`), { status: 502 });
     return r.json();
   }
-  const aIso = (d, h) => (d?.year ? new Date(Date.UTC(d.year, d.month - 1, d.day, h?.hours ?? 23, h?.minutes ?? 59)).toISOString() : null);
+  // La API omite los campos en cero; sin hora de entrega se asume 23:59.
+  const aIso = (d, h) => (d?.year ? new Date(Date.UTC(d.year, d.month - 1, d.day, h ? (h.hours ?? 0) : 23, h ? (h.minutes ?? 0) : 59)).toISOString() : null);
 
   return {
     nombre: 'google',

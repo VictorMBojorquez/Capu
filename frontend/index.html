@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CAPU · Agenda inteligente</title>
+  <meta name="description" content="Agenda inteligente con recordatorios y recompensas, integrada a Google Classroom.">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23C4571A'/><path d='M25 45 Q40 70 50 62 L78 28' stroke='white' stroke-width='9' fill='none' stroke-linecap='round'/></svg>">
+</head>
+<body>
+  <a class="skip" href="#principal">Saltar al contenido</a>
+  <header class="top">
+    <div class="marca">
+      <svg class="logo" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#C4571A"/><path d="M24 44 Q38 72 50 63 L78 26" stroke="#fff" stroke-width="9" fill="none" stroke-linecap="round"/><circle cx="40" cy="55" r="2.6" fill="#fff"/><circle cx="50" cy="55" r="2.6" fill="#fff"/></svg>
+      <h1>CAPU</h1>
+    </div>
+    <nav aria-label="Secciones" class="tabs" role="tablist">
+      <button role="tab" id="tab-agenda" aria-selected="true" aria-controls="vista-agenda">Agenda</button>
+      <button role="tab" id="tab-tokens" aria-selected="false" aria-controls="vista-tokens">Tokens</button>
+      <button role="tab" id="tab-resumen" aria-selected="false" aria-controls="vista-resumen">Resumen</button>
+    </nav>
+    <div class="acciones">
+      <span class="chip" id="chip-tokens" title="Saldo de tokens">🪙 <b id="saldo">0</b></span>
+      <span class="chip" id="chip-racha" title="Días consecutivos entregando a tiempo">🔥 <b id="racha">0</b></span>
+      <button class="btn secundario" id="btn-sync">Sincronizar con Classroom</button>
+    </div>
+  </header>
+
+  <main id="principal">
+    <section id="vista-agenda" role="tabpanel" aria-labelledby="tab-agenda">
+      <div class="avisos" id="avisos" aria-live="polite"></div>
+      <div class="filtros">
+        <label>Curso <select id="f-curso"><option value="">Todos</option></select></label>
+        <label>Estado
+          <select id="f-estado">
+            <option value="">Todos</option><option value="pendiente">Pendiente</option><option value="en_progreso">En progreso</option>
+            <option value="vencida">Vencida</option><option value="entregada">Entregada</option>
+          </select>
+        </label>
+      </div>
+      <ul class="lista" id="lista-tareas" aria-label="Tareas"></ul>
+      <p class="vacio" id="vacio" hidden>Aún no hay tareas. Pulsa <b>Sincronizar con Classroom</b> para traerlas.</p>
+    </section>
+
+    <section id="vista-tokens" role="tabpanel" aria-labelledby="tab-tokens" hidden>
+      <h2>Recompensas</h2>
+      <div class="rejilla" id="recompensas"></div>
+      <h2>Historial de tokens</h2>
+      <ul class="historial" id="historial"></ul>
+    </section>
+
+    <section id="vista-resumen" role="tabpanel" aria-labelledby="tab-resumen" hidden>
+      <h2>Tu progreso</h2>
+      <div class="rejilla metricas" id="metricas"></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script src="app.js"></script>
+</body>
+</html>

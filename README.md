@@ -26,7 +26,7 @@ Proyecto Integrador de *Gestión de Proyectos de Software* · Tecnológico Nacio
 ## Instalación y ejecución
 
 ```bash
-git clone <URL-del-repositorio> capu
+git clone https://github.com/VictorMBojorquez/Capu.git
 cd capu
 npm install
 npm start            # http://localhost:3000

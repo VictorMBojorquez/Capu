@@ -1,0 +1,15 @@
+sequenceDiagram
+  actor E as Estudiante
+  participant UI as Interfaz web
+  participant API as API REST
+  participant T as Servicio de tokens
+  participant DB as Base de datos
+  E->>UI: Marca la tarea como entregada
+  UI->>API: POST /api/tareas/:id/completar
+  API->>T: registrarEntrega(id, ahora)
+  T->>DB: Lee tarea y usuario
+  T->>T: calcularTokens (a tiempo, anticipación, racha)
+  T->>DB: Actualiza tarea, saldo, racha e historial (transacción)
+  T-->>API: tokens otorgados
+  API-->>UI: JSON con tokens y racha
+  UI-->>E: Aviso "Ganaste N tokens"

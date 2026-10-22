@@ -27,18 +27,21 @@ function createApp(db = openDb()) {
 
   app.get('/api/health', (req, res) => res.json({ ok: true, version: require('../../package.json').version, ahora: now().toISOString() }));
 
-  // RF-01: OAuth 2.0 con Google. 'iniciar' manda al consentimiento; 'callback' guarda la credencial.
+  // RF-01: OAuth 2.0 con Google (código de autorización + PKCE).
+  // 'iniciar' manda al consentimiento; 'callback' guarda la credencial y la identidad real.
   app.get('/api/auth/google/iniciar', (req, res) => {
     try {
-      return res.redirect(302, oauth.urlAutorizacion(oauth.config(), oauth.crearEstado()));
+      const { estado, reto } = oauth.crearEstado();
+      return res.redirect(302, oauth.urlAutorizacion(oauth.config(), estado, reto));
     } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
   });
   app.get('/api/auth/google/callback', async (req, res) => {
     try {
       if (req.query.error) return res.redirect(302, '/?classroom=' + encodeURIComponent(req.query.error));
-      if (!oauth.validarEstado(String(req.query.state || '')))
+      const verificador = oauth.consumirEstado(String(req.query.state || ''));
+      if (!verificador)
         return res.status(400).json({ error: 'Estado de OAuth inválido o expirado; inténtalo de nuevo' });
-      const t = await oauth.canjearCodigo(String(req.query.code || ''), oauth.config());
+      const t = await oauth.canjearCodigo(String(req.query.code || ''), oauth.config(), { verificador });
       oauth.guardar(db, 1, t, now());
       return res.redirect(302, '/?classroom=ok');
     } catch (e) {
@@ -47,8 +50,12 @@ function createApp(db = openDb()) {
       return res.status(status).json({ error: e.message });
     }
   });
-  app.get('/api/auth/google/estado', wrap(async () => ({ conectado: Boolean(await oauth.tokenValido(db, 1, now())) })));
-  app.delete('/api/auth/google', wrap(async () => { oauth.borrar(db, 1); return { ok: true }; }));
+  app.get('/api/auth/google/estado', wrap(async () => {
+    const conectado = Boolean(await oauth.tokenValido(db, 1, now()));
+    const u = db.prepare('SELECT nombre, correo FROM usuario WHERE id_usuario = 1').get();
+    return { conectado, nombre: u.nombre, correo: u.correo };
+  }));
+  app.delete('/api/auth/google', wrap(async () => { await oauth.desconectar(db, 1); return { ok: true }; }));
 
   // RF-03: sincronización. Prioridad: cabecera x-google-token > credencial OAuth guardada > datos de demostración.
   app.post('/api/sync', wrap(async (req) => {

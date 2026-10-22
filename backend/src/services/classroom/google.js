@@ -1,35 +1,49 @@
 // Adaptador real de Google Classroom (solo lectura, RF-02/RF-03).
-// Requiere un token OAuth 2.0 con los alcances: classroom.courses.readonly,
-// classroom.coursework.me.readonly y classroom.student-submissions.me.readonly.
-// Estado: escrito a partir de la documentación oficial; PENDIENTE de probar con credenciales reales (Etapa III).
+// Requiere un token OAuth 2.0 con los alcances de classroom.* (los define services/oauth.js).
+// Validado contra la respuesta real de la API: due={year,month,day} + dueTime={hours,minutes}.
+// FORMATO: la API omite los campos en cero; sin hora de vencimiento se asume 23:59.
+// NOTA: lista TODAS las páginas de cursos, trabajos y entregas (pageSize + pageToken).
 const BASE = 'https://classroom.googleapis.com/v1';
 
 module.exports = function googleAdapter(accessToken, fetchFn = fetch) {
-  async function get(path) {
-    const r = await fetchFn(`${BASE}${path}`, { headers: { Authorization: `Bearer ${accessToken}` } });
+  async function get(ruta, params = {}) {
+    const r = await fetchFn(`${BASE}${ruta}?${new URLSearchParams(params)}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } });
     if (!r.ok) throw Object.assign(new Error(`Google Classroom respondió ${r.status}`), { status: 502 });
     return r.json();
   }
-  // La API omite los campos en cero; sin hora de entrega se asume 23:59.
-  const aIso = (d, h) => (d?.year ? new Date(Date.UTC(d.year, d.month - 1, d.day, h ? (h.hours ?? 0) : 23, h ? (h.minutes ?? 0) : 59)).toISOString() : null);
+  // Recorre todas las páginas de una colección paginada de la API.
+  async function listar(ruta, campo, params = {}) {
+    const out = [];
+    let pagina;
+    do {
+      const d = await get(ruta, { pageSize: 100, ...params, ...(pagina ? { pageToken: pagina } : {}) });
+      out.push(...(d[campo] || []));
+      pagina = typeof d.nextPageToken === 'undefined' ? undefined : d.nextPageToken;
+    } while (pagina);
+    return out;
+  }
+  const aIso = (d, h) => (d?.year
+    ? new Date(Date.UTC(d.year, d.month - 1, d.day, h ? (h.hours ?? 0) : 23, h ? (h.minutes ?? 0) : 59)).toISOString()
+    : null);
 
   return {
     nombre: 'google',
     async obtenerCursos() {
-      const d = await get('/courses?courseStates=ACTIVE&studentId=me');
-      return (d.courses || []).map((c) => ({ id: c.id, nombre: c.name }));
+      const cursos = await listar('/courses', 'courses', { courseStates: 'ACTIVE', studentId: 'me', pageSize: 200 });
+      return cursos.map((c) => ({ id: c.id, nombre: c.name }));
     },
     async obtenerTareas(idCurso) {
-      const [w, s] = await Promise.all([
-        get(`/courses/${idCurso}/courseWork`),
-        get(`/courses/${idCurso}/courseWork/-/studentSubmissions?userId=me`),
+      const [trabajos, entregas] = await Promise.all([
+        listar(`/courses/${idCurso}/courseWork`, 'courseWork'),
+        listar(`/courses/${idCurso}/courseWork/-/studentSubmissions`, 'studentSubmissions', { userId: 'me' }),
       ]);
-      const entregas = new Map((s.studentSubmissions || []).map((e) => [e.courseWorkId, e]));
-      return (w.courseWork || []).filter((t) => t.dueDate).map((t) => {
-        const e = entregas.get(t.id);
+      const entregasMap = new Map(entregas.map((e) => [e.courseWorkId, e]));
+      return trabajos.filter((t) => t.dueDate && (!t.state || t.state === 'PUBLISHED')).map((t) => {
+        const e = entregasMap.get(t.id);
         const entregada = !!e && ['TURNED_IN', 'RETURNED'].includes(e.state);
         return { id: t.id, titulo: t.title, descripcion: t.description || '', fechaLimite: aIso(t.dueDate, t.dueTime),
-          entregada, fechaEntrega: entregada ? e.updateTime : null, enlace: t.alternateLink };
+          entregada, fechaEntrega: entregada ? (e.updateTime) : null, enlace: t.alternateLink };
       });
     },
   };

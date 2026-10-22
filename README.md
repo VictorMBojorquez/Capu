@@ -37,22 +37,15 @@ Sin conexión con Google la aplicación usa **datos de demostración** (adaptado
 
 ### Conexión real con Google Classroom (OAuth, RF-01)
 
-1. En Google Cloud Console crea un proyecto, habilita la API de Google Classroom y
-   crea credenciales de tipo *ID de cliente OAuth* (aplicación web).
-2. Agrega `http://localhost:3000/api/auth/google/callback` como URI de redirección autorizada.
-3. Exporta las variables del punto 2 antes de iniciar el servidor:
+Pasos completos en **[docs/guia-conexion-classroom.md](docs/guia-conexion-classroom.md)**. Resumen:
 
-```bash
-export GOOGLE_CLIENT_ID="xxxx.apps.googleusercontent.com"
-export GOOGLE_CLIENT_SECRET="xxxx"
-# opcionales:
-export GOOGLE_REDIRECT_URI="http://localhost:3000/api/auth/google/callback"
-export CAPU_SYNC_MINUTOS=15   # sincronización automática periódica (desactivada por defecto)
-```
+1. Crea un ID de cliente OAuth (aplicación web) en Google Cloud con la API de Google Classroom,
+   y como URI de redirección `http://localhost:3000/api/auth/google/callback`.
+2. Copia `.env.example` a `.env` y pega tu `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET`
+   (el servidor carga `.env` automáticamente; también aceptan variables exportadas).
+3. `npm start` → botón **Conectar con Google** → autorizar → **Sincronizar con Classroom**.
 
-Con credenciales configuradas, la aplicación muestra el botón **Conectar con Google**;
-al autorizar, la sincronización usa la API real y las alertas se generan a partir de las
-tareas reales (vencidas y próximas a vencer en 24 h).
+Opcionales en el entorno:
 
 ### Credenciales de prueba
 No se requieren para el modo demostración (usuario “Estudiante Demo”, adaptador `mock`).
@@ -71,7 +64,7 @@ No se requieren para el modo demostración (usuario “Estudiante Demo”, adapt
 
 ### Pruebas
 ```bash
-npm test             # 32 pruebas automatizadas
+npm test             # 37 pruebas automatizadas
 ```
 
 ## Estructura
@@ -80,7 +73,7 @@ npm test             # 32 pruebas automatizadas
 capu/
 ├── backend/src/
 │   ├── app.js, server.js, db.js, seed.js, clock.js
-│   └── services/        tokens, reminders, alertas, sync, oauth, classroom/{mock,google}
+│   └── services/        tokens, reminders, alertas, sync, oauth, env, classroom/{mock,google}
 ├── frontend/            index.html, styles.css, app.js
 ├── database/schema.sql  esquema relacional
 ├── tests/               pruebas unitarias y de API

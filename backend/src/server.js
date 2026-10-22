@@ -1,6 +1,11 @@
 const { createApp } = require('./app');
 const { openDb } = require('./db');
 const { now } = require('./clock');
+const { cargarEnv } = require('./services/env');
+const path = require('node:path');
+
+cargarEnv(path.join(__dirname, '..', '..', '.env')); // GOOGLE_CLIENT_ID, etc.
+
 const { sincronizar } = require('./services/sync');
 const { programarRecordatorios } = require('./services/reminders');
 const oauth = require('./services/oauth');

@@ -7,26 +7,52 @@ const tareas = require('./services/tareas');
 const tokens = require('./services/tokens');
 const reminders = require('./services/reminders');
 const { sincronizar } = require('./services/sync');
+const alertas = require('./services/alertas');
+const oauth = require('./services/oauth');
 const mockAdapter = require('./services/classroom/mock');
 const googleAdapter = require('./services/classroom/google');
 
 /**
  * Crea la aplicación Express. Recibe la base de datos para poder probarla con ':memory:'.
- * Etapa II: usuario único de demostración (id 1). La autenticación con Google (RF-01) se integra en la Etapa III.
+ * Etapa III: OAuth con Google (RF-01) para sincronizar Classroom; un usuario de demostración (id 1).
  */
 function createApp(db = openDb()) {
   seed(db);
   const app = express();
   app.use(express.json());
   app.use(express.static(path.join(__dirname, '..', '..', 'frontend')));
+  app.set('db', db);
 
   const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res)).then((r) => r !== undefined && res.json(r)).catch(next);
 
   app.get('/api/health', (req, res) => res.json({ ok: true, version: require('../../package.json').version, ahora: now().toISOString() }));
 
-  // RF-03: sincronización. Con cabecera x-google-token usa Google real; si no, datos de demostración.
+  // RF-01: OAuth 2.0 con Google. 'iniciar' manda al consentimiento; 'callback' guarda la credencial.
+  app.get('/api/auth/google/iniciar', (req, res) => {
+    try {
+      return res.redirect(302, oauth.urlAutorizacion(oauth.config(), oauth.crearEstado()));
+    } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+  });
+  app.get('/api/auth/google/callback', async (req, res) => {
+    try {
+      if (req.query.error) return res.redirect(302, '/?classroom=' + encodeURIComponent(req.query.error));
+      if (!oauth.validarEstado(String(req.query.state || '')))
+        return res.status(400).json({ error: 'Estado de OAuth inválido o expirado; inténtalo de nuevo' });
+      const t = await oauth.canjearCodigo(String(req.query.code || ''), oauth.config());
+      oauth.guardar(db, 1, t, now());
+      return res.redirect(302, '/?classroom=ok');
+    } catch (e) {
+      const status = e.status || 500;
+      if (status === 500) console.error(e);
+      return res.status(status).json({ error: e.message });
+    }
+  });
+  app.get('/api/auth/google/estado', wrap(async () => ({ conectado: Boolean(await oauth.tokenValido(db, 1, now())) })));
+  app.delete('/api/auth/google', wrap(async () => { oauth.borrar(db, 1); return { ok: true }; }));
+
+  // RF-03: sincronización. Prioridad: cabecera x-google-token > credencial OAuth guardada > datos de demostración.
   app.post('/api/sync', wrap(async (req) => {
-    const token = req.get('x-google-token');
+    const token = req.get('x-google-token') || await oauth.tokenValido(db, 1, now());
     const adaptador = token ? googleAdapter(token) : mockAdapter(now());
     return { adaptador: adaptador.nombre, ...(await sincronizar(db, adaptador, now())) };
   }));
@@ -44,9 +70,10 @@ function createApp(db = openDb()) {
   // RF-07: entrega completada (otorga tokens).
   app.post('/api/tareas/:id/completar', wrap(async (req) => tokens.registrarEntrega(db, Number(req.params.id), now())));
 
-  // RF-06: recordatorios.
+  // RF-06: recordatorios y alertas de la app (próximas a vencer y vencidas).
   app.get('/api/recordatorios/pendientes', wrap(async () => reminders.pendientes(db, now())));
   app.post('/api/recordatorios/procesar', wrap(async () => ({ enviados: reminders.procesar(db, now()) })));
+  app.get('/api/alertas', wrap(async () => alertas.generar(db, now())));
 
   // RF-08 / RF-09: tokens y recompensas.
   app.get('/api/tokens', wrap(async () => ({

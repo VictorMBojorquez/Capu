@@ -61,6 +61,18 @@ test('canjear una recompensa con saldo insuficiente devuelve 422', async () => {
 test('rutas inexistentes devuelven 404 en formato JSON', async () => {
   const r = await api('GET', '/api/nada'); assert.equal(r.status, 404); assert.ok(r.data.error);
 });
+test('GET /api/alertas lista tareas próximas a vencer y vencidas', async () => {
+  const a = (await api('GET', '/api/alertas')).data;
+  assert.ok(Array.isArray(a)); assert.ok(a.length >= 1);
+  assert.ok(a.every((x) => (['vencida', 'proxima'].includes(x.tipo)) && x.titulo && x.curso));
+  assert.ok(a.some((x) => x.tipo === 'vencida'));
+});
+test('GET /api/auth/google/estado indica sin conexión y sin credencial no rompe el sync (cae al demo)', async () => {
+  const e = (await api('GET', '/api/auth/google/estado')).data;
+  assert.equal(e.conectado, false);
+  const s = (await api('POST', '/api/sync'));
+  assert.equal(s.status, 200); assert.equal(s.data.adaptador, 'mock');
+});
 
 test('adaptador de Google: transforma la respuesta de la API (con fetch simulado)', async () => {
   const falso = async (u) => ({ ok: true, json: async () => {

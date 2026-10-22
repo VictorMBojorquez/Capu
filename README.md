@@ -3,7 +3,7 @@
 Agenda inteligente con recordatorios y recompensas (tokens), integrada a Google Classroom.
 Proyecto Integrador de *Gestión de Proyectos de Software* · Tecnológico Nacional de México, Instituto Tecnológico de Tijuana.
 
-**Versión actual:** 0.2.0 (Etapa II — Planificación y arranque del desarrollo)
+**Versión actual:** 0.3.0 (Etapa III — Integración con Google Classroom vía OAuth y alertas)
 
 ## Integrantes
 
@@ -33,10 +33,29 @@ npm start            # http://localhost:3000
 ```
 
 Al abrir la aplicación, pulsa **Sincronizar con Classroom** para cargar tareas.
-Sin credenciales de Google la aplicación usa **datos de demostración** (adaptador `mock`).
+Sin conexión con Google la aplicación usa **datos de demostración** (adaptador `mock`).
+
+### Conexión real con Google Classroom (OAuth, RF-01)
+
+1. En Google Cloud Console crea un proyecto, habilita la API de Google Classroom y
+   crea credenciales de tipo *ID de cliente OAuth* (aplicación web).
+2. Agrega `http://localhost:3000/api/auth/google/callback` como URI de redirección autorizada.
+3. Exporta las variables del punto 2 antes de iniciar el servidor:
+
+```bash
+export GOOGLE_CLIENT_ID="xxxx.apps.googleusercontent.com"
+export GOOGLE_CLIENT_SECRET="xxxx"
+# opcionales:
+export GOOGLE_REDIRECT_URI="http://localhost:3000/api/auth/google/callback"
+export CAPU_SYNC_MINUTOS=15   # sincronización automática periódica (desactivada por defecto)
+```
+
+Con credenciales configuradas, la aplicación muestra el botón **Conectar con Google**;
+al autorizar, la sincronización usa la API real y las alertas se generan a partir de las
+tareas reales (vencidas y próximas a vencer en 24 h).
 
 ### Credenciales de prueba
-No se requieren. El modo demostración usa el usuario “Estudiante Demo”. El inicio de sesión con Google (RF-01) se integra en la Etapa III.
+No se requieren para el modo demostración (usuario “Estudiante Demo”, adaptador `mock`).
 
 ### Variables de entorno (opcionales)
 
@@ -45,10 +64,14 @@ No se requieren. El modo demostración usa el usuario “Estudiante Demo”. El 
 | `PORT` | Puerto del servidor | `3000` |
 | `CAPU_DB` | Ruta del archivo SQLite (`:memory:` para pruebas) | `database/capu.db` |
 | `CAPU_FIXED_NOW` | Fija la fecha del sistema (ISO 8601) para demostraciones y pruebas | reloj real |
+| `GOOGLE_CLIENT_ID` | ID de cliente OAuth (Google Cloud) | sin OAuth → modo demostración |
+| `GOOGLE_CLIENT_SECRET` | Secreto del cliente OAuth | — |
+| `GOOGLE_REDIRECT_URI` | URI de retorno del flujo OAuth | `http://localhost:3000/api/auth/google/callback` |
+| `CAPU_SYNC_MINUTOS` | Intervalo de sincronización automática en minutos (`0` desactiva) | `0` |
 
 ### Pruebas
 ```bash
-npm test             # 22 pruebas automatizadas
+npm test             # 32 pruebas automatizadas
 ```
 
 ## Estructura
@@ -57,7 +80,7 @@ npm test             # 22 pruebas automatizadas
 capu/
 ├── backend/src/
 │   ├── app.js, server.js, db.js, seed.js, clock.js
-│   └── services/        tokens, reminders, tareas, sync, classroom/{mock,google}
+│   └── services/        tokens, reminders, alertas, sync, oauth, classroom/{mock,google}
 ├── frontend/            index.html, styles.css, app.js
 ├── database/schema.sql  esquema relacional
 ├── tests/               pruebas unitarias y de API
@@ -69,18 +92,21 @@ capu/
 
 | Método y ruta | Descripción | Req. |
 |---|---|---|
-| `POST /api/sync` | Sincroniza cursos y tareas (mock o Google con cabecera `x-google-token`) | RF-03 |
+| `GET /api/auth/google/iniciar` · `GET /api/auth/google/callback` | Flujo OAuth 2.0 con Google | RF-01 |
+| `GET /api/auth/google/estado` · `DELETE /api/auth/google` | Estado y desconexión de la cuenta | RF-01 |
+| `POST /api/sync` | Sincroniza cursos y tareas (OAuth guardado, cabecera `x-google-token` o mock) | RF-03 |
 | `GET /api/tareas?curso=&estado=` | Agenda con filtros | RF-04 |
 | `PATCH /api/tareas/:id` | Registra el porcentaje de avance | RF-05 |
 | `POST /api/tareas/:id/completar` | Marca como entregada y otorga tokens | RF-07 |
+| `GET /api/alertas` | Alertas en la app: tareas vencidas y próximas a vencer (24 h) | RF-06 |
 | `GET /api/recordatorios/pendientes` · `POST /api/recordatorios/procesar` | Recordatorios vencidos | RF-06 |
 | `GET /api/tokens` · `GET /api/recompensas` · `POST /api/recompensas/:id/canjear` | Saldo, historial y canje | RF-08, RF-09 |
 | `GET /api/metricas` | Indicadores de seguimiento | RF-12 |
 
 ## Estado de los requerimientos (Etapa II)
 
-Implementados: RF-03, RF-04, RF-05, RF-07, RF-08, RF-09, RF-10, RF-12 y la lógica de RF-06.
-Pendientes: RF-01 y RF-02 (OAuth con Google), envío real de notificaciones (RF-06), RF-11 (preferencias).
+Implementados: RF-01 (flujo OAuth completo; pendiente prueba con credenciales reales), RF-03, RF-04, RF-05, RF-06 (alertas en la app), RF-07, RF-08, RF-09, RF-10, RF-12.
+Pendientes: envío real de notificaciones push/correo (RF-06) y RF-11 (preferencias).
 
 ## Flujo de trabajo
 

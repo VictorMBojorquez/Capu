@@ -38,11 +38,12 @@ async function cargarAgenda() {
   const q = new URLSearchParams();
   if ($('#f-curso').value) q.set('curso', $('#f-curso').value);
   if ($('#f-estado').value) q.set('estado', $('#f-estado').value);
-  const [lista, pendientes] = await Promise.all([api('GET', '/api/tareas?' + q), api('GET', '/api/recordatorios/pendientes'), actualizarCabecera()]);
+  const [lista, alertas] = await Promise.all([api('GET', '/api/tareas?' + q), api('GET', '/api/alertas'), actualizarCabecera()]);
   const ul = $('#lista-tareas'); ul.innerHTML = '';
   $('#vacio').hidden = lista.length > 0 || q.toString() !== '';
-  $('#avisos').innerHTML = pendientes.slice(0, 3).map((r) =>
-    `<div class="aviso">⏰ <b>Recordatorio:</b> “${esc(r.titulo)}” (${esc(r.curso)}) vence ${esc(fmt.format(new Date(r.fecha_limite)))}.</div>`).join('');
+  $('#avisos').innerHTML = alertas.slice(0, 3).map((a) => a.tipo === 'vencida'
+    ? `<div class="aviso critico">⛔ <b>Vencida:</b> “${esc(a.titulo)}” (${esc(a.curso)}) venció hace ${a.vencidasH} h.</div>`
+    : `<div class="aviso">⏰ <b>Vence pronto:</b> “${esc(a.titulo)}” (${esc(a.curso)}) vence en ${a.faltanH} h.</div>`).join('');
   for (const t of lista) {
     const li = document.createElement('li'); li.className = `tarea ${t.estado_visible}`;
     const hecha = t.estado === 'entregada';
@@ -109,4 +110,22 @@ async function cargarResumen() {
   $('#metricas').innerHTML = items.map(([n, e]) => `<div class="tarjeta"><div class="num">${esc(n)}</div><div class="et">${esc(e)}</div></div>`).join('');
 }
 
-intentar(async () => { await cargarCursos(); await cargarAgenda(); })();
+// ---- Alertas (RF-06): sondeo periódico silencioso; avisa solo cuando aumentan ----
+let alertasPrevias = -1;
+async function vigilarAlertas() {
+  try {
+    const alertas = await api('GET', '/api/alertas');
+    if (alertasPrevias >= 0 && alertas.length > alertasPrevias && alertas.length)
+      aviso(`⏰ ${alertas.length} tarea(s) requieren tu atención`);
+    alertasPrevias = alertas.length;
+  } catch { /* silencioso: reintenta en el siguiente ciclo */ }
+  setTimeout(vigilarAlertas, 30000);
+}
+
+// ---- Conexión con Google Classroom (RF-01) ----
+async function estadoGoogle() {
+  try { $('#btn-google').hidden = (await api('GET', '/api/auth/google/estado')).conectado; } catch { /* sin OAuth configurado */ }
+}
+
+intentar(async () => { await cargarCursos(); await cargarAgenda(); await estadoGoogle(); })();
+vigilarAlertas();

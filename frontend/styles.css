@@ -39,6 +39,8 @@ select { font: inherit; padding: 8px 10px; border-radius: 10px; border: 1px soli
 
 .avisos .aviso { background: var(--naranja-claro); border-left: 6px solid var(--naranja); border-radius: 10px; padding: 10px 14px; margin-bottom: 10px; }
 .avisos .aviso b { color: var(--naranja); }
+.avisos .aviso.critico { border-left-color: var(--alerta); }
+.avisos .aviso.critico b { color: var(--alerta); }
 
 .lista, .historial { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
 .tarea { background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--radio); box-shadow: var(--sombra); padding: 16px 18px; display: grid; gap: 10px; }

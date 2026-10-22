@@ -12,6 +12,15 @@ CREATE TABLE IF NOT EXISTS usuario (
   ultima_entrega_ok TEXT            -- fecha (YYYY-MM-DD) de la última entrega a tiempo
 );
 
+-- Credencial OAuth 2.0 de Google (RF-01). Una fila por usuario; renovable con refresh_token.
+CREATE TABLE IF NOT EXISTS credencial_google (
+  id_usuario    INTEGER PRIMARY KEY REFERENCES usuario(id_usuario) ON DELETE CASCADE,
+  access_token  TEXT NOT NULL,
+  refresh_token TEXT,
+  expira        TEXT NOT NULL,      -- fecha ISO 8601 en que vence el access_token
+  actualizado   TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS curso (
   id_curso      INTEGER PRIMARY KEY AUTOINCREMENT,
   id_usuario    INTEGER NOT NULL REFERENCES usuario(id_usuario) ON DELETE CASCADE,

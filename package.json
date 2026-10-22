@@ -1,6 +1,6 @@
 {
   "name": "capu",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "CAPU: agenda inteligente con gamificación integrada a Google Classroom",
   "main": "backend/src/server.js",
   "scripts": {

@@ -61,6 +61,18 @@ test('canjear una recompensa con saldo insuficiente devuelve 422', async () => {
 test('rutas inexistentes devuelven 404 en formato JSON', async () => {
   const r = await api('GET', '/api/nada'); assert.equal(r.status, 404); assert.ok(r.data.error);
 });
+test('GET /api/alertas lista tareas próximas a vencer y vencidas', async () => {
+  const a = (await api('GET', '/api/alertas')).data;
+  assert.ok(Array.isArray(a)); assert.ok(a.length >= 1);
+  assert.ok(a.every((x) => (['vencida', 'proxima'].includes(x.tipo)) && x.titulo && x.curso));
+  assert.ok(a.some((x) => x.tipo === 'vencida'));
+});
+test('GET /api/auth/google/estado indica sin conexión y sin credencial no rompe el sync (cae al demo)', async () => {
+  const e = (await api('GET', '/api/auth/google/estado')).data;
+  assert.equal(e.conectado, false);
+  const s = (await api('POST', '/api/sync'));
+  assert.equal(s.status, 200); assert.equal(s.data.adaptador, 'mock');
+});
 
 test('adaptador de Google: transforma la respuesta de la API (con fetch simulado)', async () => {
   const falso = async (u) => ({ ok: true, json: async () => {
@@ -72,4 +84,29 @@ test('adaptador de Google: transforma la respuesta de la API (con fetch simulado
   assert.deepEqual(await g.obtenerCursos(), [{ id: '9', nombre: 'Álgebra' }]);
   const t = await g.obtenerTareas('9');
   assert.equal(t.length, 1); assert.equal(t[0].entregada, true); assert.equal(t[0].fechaLimite, '2026-10-20T18:00:00.000Z');
+});
+test('adaptador de Google: recorre TODAS las páginas de courseWork (paginación real)', async () => {
+  const llamadas = [];
+  const falso = async (u) => {
+    llamadas.push(String(u));
+    const pagina = (String(u).match(/pageToken=([\w-]+)/) || [])[1] || null;
+    return { ok: true, json: async () => pagina
+      ? { courseWork: [{ id: 'w2', title: 'Tarea página 2', dueDate: { year: 2026, month: 12, day: 15 } }] }
+      : { courseWork: [{ id: 'w1', title: 'Tarea página 1', dueDate: { year: 2026, month: 11, day: 1 } }], nextPageToken: 'proximo-token' } };
+  };
+  const g = googleAdapter('token', falso);
+  const t = await g.obtenerTareas('9');
+  assert.equal(t.length, 2); // ambas páginas combinadas
+  assert.ok(llamadas.some((u) => u.includes('pageToken=proximo-token')));
+});
+test('adaptador de Google: omite borradores y tareas sin fecha de vencimiento', async () => {
+  const falso = async (u) => ({ ok: true, json: async () => {
+    if (u.includes('studentSubmissions')) return { studentSubmissions: [] };
+    return { courseWork: [
+      { id: 'd', title: 'Borrador', dueDate: { year: 2026, month: 10, day: 20 }, state: 'DRAFT' },
+      { id: 's', title: 'Sin fecha' },
+    ] };
+  } });
+  const g = googleAdapter('token', falso);
+  assert.equal((await g.obtenerTareas('9')).length, 0);
 });

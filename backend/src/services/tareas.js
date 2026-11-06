@@ -5,6 +5,13 @@ function estadoVisible(t, ahora) {
   return t.estado;
 }
 
+/** Obtener una tarea por ID con estado visible */
+function obtener(db, ahora, id) {
+  const t = db.prepare(`SELECT t.*, c.nombre AS curso FROM tarea t JOIN curso c USING (id_curso) WHERE t.id_tarea = ?`).get(id);
+  if (!t) return null;
+  return { ...t, estado_visible: estadoVisible(t, ahora) };
+}
+
 function listar(db, ahora, { curso, estado } = {}) {
   const filas = db.prepare(`SELECT t.*, c.nombre AS curso FROM tarea t JOIN curso c USING (id_curso)
     ORDER BY (t.estado = 'entregada'), t.fecha_limite`).all();
@@ -39,4 +46,4 @@ function metricas(db, ahora, idUsuario = 1) {
   };
 }
 
-module.exports = { listar, actualizarAvance, metricas, estadoVisible };
+module.exports = { listar, obtener, actualizarAvance, metricas, estadoVisible };

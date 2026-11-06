@@ -10,7 +10,9 @@ CREATE TABLE IF NOT EXISTS usuario (
   rol           TEXT NOT NULL DEFAULT 'estudiante' CHECK (rol IN ('estudiante','admin')),
   saldo_tokens  INTEGER NOT NULL DEFAULT 0 CHECK (saldo_tokens >= 0),
   racha_dias    INTEGER NOT NULL DEFAULT 0,
-  ultima_entrega_ok TEXT            -- fecha (YYYY-MM-DD) de la última entrega a tiempo
+  ultima_entrega_ok TEXT,            -- fecha (YYYY-MM-DD) de la última entrega a tiempo
+  preferencias_notificaciones TEXT DEFAULT '{"push":true,"correo":false,"recordatorio_24h":true,"recordatorio_1h":true}',
+  avatar_url    TEXT
 );
 
 -- Credencial OAuth 2.0 de Google (RF-01). Una fila por usuario; renovable con refresh_token.

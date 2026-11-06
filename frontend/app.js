@@ -31,8 +31,10 @@ const ETIQUETA_ESTADO = {
   entregada: 'Entregada'
 };
 
-const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({
-  '&': '&', '<': '<', '>': '>', '"': '"', "'": ''' }[c]));
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => {
+  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  return map[c];
+});
 
 const avatarColorClass = (str) => {
   let hash = 0;
@@ -48,51 +50,35 @@ async function api(method, path, body) {
     body: body ? JSON.stringify(body) : undefined
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || 'Error en la petición');
+  if (!res.ok) throw Object.assign(new Error(data.error || 'Error en la petición'), { status: res.status });
   return data;
 }
-
-const GET = (p) => api('GET', p);
-const POST = (p, b) => api('POST', p, b);
-const PATCH = (p, b) => api('PATCH', p, b);
-const DELETE = (p) => api('DELETE', p);
+const GET = (path) => api('GET', path);
+const POST = (path, body) => api('POST', path, body);
+const PATCH = (path, body) => api('PATCH', path, body);
+const DELETE = (path) => api('DELETE', path);
 
 /* ---------- Toast System ---------- */
-let toastCounter = 0;
-function showToast(message, type = 'info', title = '', duration = 4000) {
+function showToast(message, type = 'info', title = '') {
   const container = $('#toast-container');
-  const id = `toast-${++toastCounter}`;
-  const icons = {
-    success: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>',
-    error: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
-    warning: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
-    info: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
-  };
-
   const toast = document.createElement('div');
-  toast.id = id;
   toast.className = `toast toast--${type}`;
-  toast.style.setProperty('--toast-duration', `${duration}ms`);
+  toast.setAttribute('role', 'alert');
+  toast.setAttribute('aria-live', 'polite');
   toast.innerHTML = `
-    <div class="toast__icon" aria-hidden="true">${icons[type]}</div>
+    <div class="toast__icon" aria-hidden="true">${type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️'}</div>
     <div class="toast__content">
       ${title ? `<div class="toast__title">${esc(title)}</div>` : ''}
       <div class="toast__message">${esc(message)}</div>
     </div>
-    <button class="toast__close" aria-label="Cerrar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-    <div class="toast__progress" style="animation-duration: ${duration}ms"></div>
+    <button class="toast__close" aria-label="Cerrar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <div class="toast__progress"></div>
   `;
-  toast.querySelector('.toast__close').addEventListener('click', () => removeToast(toast));
   container.appendChild(toast);
-  setTimeout(() => removeToast(toast), duration);
-  return toast;
-}
-
-function removeToast(toast) {
-  if (!toast || toast.removed) return;
-  toast.removed = true;
-  toast.style.animation = 'toast-out 200ms ease-in forwards';
-  setTimeout(() => toast.remove(), 200);
+  const progress = toast.querySelector('.toast__progress');
+  progress.style.animation = 'toast-progress 4s linear forwards';
+  toast.querySelector('.toast__close').addEventListener('click', () => toast.remove());
+  setTimeout(() => toast.remove(), 4500);
 }
 
 /* ---------- Modal System ---------- */
@@ -154,11 +140,18 @@ const State = {
   alertCount: -1
 };
 
+/* ---------- Debounce helper ---------- */
+function debounce(fn, ms) {
+  let timer;
+  return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); };
+}
+
 /* ---------- Navigation / Routing ---------- */
 const pages = {
   agenda: { init: loadAgenda, cleanup: () => {} },
   tokens: { init: loadTokens, cleanup: () => {} },
   resumen: { init: loadResumen, cleanup: () => {} },
+  perfil: { init: loadPerfil, cleanup: () => {} },
   'admin-usuarios': { init: loadAdminUsuarios, cleanup: () => {} },
   'admin-cursos': { init: loadAdminCursos, cleanup: () => {} },
   'admin-recompensas': { init: loadAdminRecompensas, cleanup: () => {} },
@@ -198,16 +191,8 @@ async function navigate(pageName, pushState = true) {
   try {
     await pages[pageName].init();
   } catch (e) {
-    console.error(`Error loading ${pageName}:`, e);
-    showToast('Error al cargar la página', 'error');
+    showToast(e.message, 'error', 'Error al cargar página');
   }
-
-  if (pushState) {
-    history.pushState({ page: pageName }, '', `#${pageName}`);
-  }
-
-  // Close mobile sidebar
-  closeSidebar();
 }
 
 function handleHashChange() {
@@ -236,27 +221,14 @@ function closeSidebar() {
   document.body.style.overflow = '';
 }
 
-function toggleSidebar() {
+sidebarToggle.addEventListener('click', () => {
   if (sidebar.classList.contains('sidebar--open')) closeSidebar();
   else openSidebar();
-}
+});
 
-sidebarToggle.addEventListener('click', toggleSidebar);
 sidebarBackdrop.addEventListener('click', closeSidebar);
 
-// Close sidebar on nav click (mobile)
-$$('.sidebar__item[data-page]').forEach(link => {
-  link.addEventListener('click', e => {
-    if (window.innerWidth < 1024) closeSidebar();
-  });
-});
-
-// Keyboard navigation for sidebar
-sidebar.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeSidebar();
-});
-
-/* ---------- Theme Toggle ---------- */
+/* ---------- Theme Management ---------- */
 const themeToggle = $('#theme-toggle');
 const themeIconLight = $('#theme-icon-light');
 const themeIconDark = $('#theme-icon-dark');
@@ -286,6 +258,19 @@ const userDropdown = $('#user-dropdown');
 const userMenuTrigger = $('#user-menu-trigger');
 const userMenu = $('#user-menu');
 
+userMenuTrigger.addEventListener('click', () => {
+  const expanded = userMenuTrigger.getAttribute('aria-expanded') === 'true';
+  userMenuTrigger.setAttribute('aria-expanded', !expanded);
+  userMenu.setAttribute('aria-hidden', expanded);
+});
+
+document.addEventListener('click', e => {
+  if (!userDropdown.contains(e.target)) {
+    userMenuTrigger.setAttribute('aria-expanded', 'false');
+    userMenu.setAttribute('aria-hidden', 'true');
+  }
+});
+
 function updateUserUI(user) {
   State.user = user;
   State.isAdmin = user?.rol === 'admin';
@@ -307,94 +292,16 @@ function updateUserUI(user) {
   $('#sidebar-avatar').className = `avatar ${avatarColorClass(name)}`;
 
   // Google connect button
-  const googleConnected = user?.googleConnected ?? false;
-  $('#btn-google').hidden = googleConnected;
-
-  // Admin nav
-  $('#admin-section-nav').hidden = !State.isAdmin;
-
-  // Update admin tabs visibility
-  updateAdminTabs();
-}
-
-function updateAdminTabs() {
-  const adminTabs = $$('.sidebar__item[data-page^="admin-"]');
-  adminTabs.forEach(tab => tab.parentElement.style.display = State.isAdmin ? '' : 'none');
-  $('#admin-section-nav').style.display = State.isAdmin ? '' : 'none';
-}
-
-// Dropdown toggle
-userMenuTrigger.addEventListener('click', () => {
-  const expanded = userMenuTrigger.getAttribute('aria-expanded') === 'true';
-  userMenuTrigger.setAttribute('aria-expanded', !expanded);
-  userMenu.setAttribute('aria-hidden', expanded);
-});
-
-document.addEventListener('click', e => {
-  if (!userDropdown.contains(e.target)) {
-    userMenuTrigger.setAttribute('aria-expanded', 'false');
-    userMenu.setAttribute('aria-hidden', 'true');
+  if (user?.googleConnected) {
+    $('#btn-google-connect-header').hidden = true;
+    $('#btn-google-disconnect-header').hidden = false;
+  } else {
+    $('#btn-google-connect-header').hidden = false;
+    $('#btn-google-disconnect-header').hidden = true;
   }
-});
 
-// Dropdown actions
-userMenu.addEventListener('click', async e => {
-  const action = e.target.closest('[data-action]')?.dataset.action;
-  if (!action) return;
-
-  userMenuTrigger.setAttribute('aria-expanded', 'false');
-  userMenu.setAttribute('aria-hidden', 'true');
-
-  if (action === 'sync') {
-    await syncNow();
-  } else if (action === 'logout') {
-    if (await confirmAction('¿Cerrar sesión?', 'Cerrar sesión', false)) {
-      // Redirect to logout or clear session
-      window.location.reload();
-    }
-  }
-});
-
-/* ---------- Sync Function ---------- */
-async function syncNow() {
-  const btn = $('#btn-sync');
-  const originalText = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = `<svg class="spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-opacity="1"><animateTransform attributeName="transform" type="rotate" dur="1s" from="0 12 12" to="360 12 12" repeatCount="indefinite"/></svg> Sincronizando...`;
-  try {
-    const res = await POST('/api/sync');
-    showToast(`Sincronizado (${res.adaptador}): ${res.nuevas} tareas nuevas, ${res.recordatorios} recordatorios`, 'success');
-    await refreshCurrentPage();
-  } catch (e) {
-    showToast(e.message, 'error', 'Error al sincronizar');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = originalText;
-  }
-}
-
-async function refreshCurrentPage() {
-  if (pages[State.currentPage].init) await pages[State.currentPage].init();
-}
-
-/* ---------- Alerts Polling ---------- */
-async function pollAlerts() {
-  try {
-    const alertas = await GET('/api/alertas');
-    if (State.alertCount >= 0 && alertas.length > State.alertCount && alertas.length > 0) {
-      showToast(`${alertas.length} tarea(s) requieren tu atención`, 'warning', '⏰ Nuevas alertas');
-    }
-    State.alertCount = alertas.length;
-    updateAgendaStats(alertas);
-  } catch { /* silencioso */ }
-  setTimeout(pollAlerts, 30000);
-}
-
-function updateAgendaStats(alertas) {
-  const vencidas = alertas.filter(a => a.tipo === 'vencida').length;
-  const proximas = alertas.filter(a => a.tipo === 'proxima').length;
-  $('#stat-vencidas').textContent = vencidas;
-  $('#stat-proximas-24h').textContent = proximas;
+  // Admin nav items
+  $$('.admin-nav-item').forEach(el => el.hidden = !State.isAdmin);
 }
 
 /* ---------- PAGE: AGENDA ---------- */
@@ -476,7 +383,8 @@ function renderTasks(tasks, showEmpty) {
       loadTasks();
     }, 300));
 
-    card.querySelector('[data-complete]')?.addEventListener('click', async () => {
+    card.querySelector('[data-complete]')?.addEventListener('click', async (e) => {
+      e.stopPropagation();
       try {
         const res = await POST(`/api/tareas/${id}/completar`);
         showToast(res.cantidad ? `¡Bien! Ganaste ${res.cantidad} tokens 🪙` : 'Entregada, pero fuera de tiempo: sin tokens', res.cantidad ? 'success' : 'warning');
@@ -484,6 +392,14 @@ function renderTasks(tasks, showEmpty) {
         updateHeaderTokens();
       } catch (e) {
         showToast(e.message, 'error');
+      }
+    });
+
+    // Click on card body to open detail modal (not on buttons/inputs/links)
+    card.addEventListener('click', (e) => {
+      const target = e.target.closest('button, a, input, select, textarea');
+      if (!target) {
+        openTaskDetail(id);
       }
     });
   });
@@ -550,82 +466,710 @@ function courseColor(id) {
   return courseColorCache[id];
 }
 
-// Debounce helper
-function debounce(fn, ms) {
-  let timer;
-  return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); };
+/* ---------- PAGE: TAREA DETALLE (MODAL) ---------- */
+function openTaskDetail(id) {
+  const modal = modals.open('task-detail-modal');
+  loadTaskDetail(id);
 }
 
-$('#f-curso').addEventListener('change', loadTasks);
-$('#f-estado').addEventListener('change', loadTasks);
-$('#btn-sync').addEventListener('click', syncNow);
-$('#empty-sync-btn').addEventListener('click', syncNow);
-
-/* ---------- PAGE: TOKENS ---------- */
-async function loadTokens() {
+async function loadTaskDetail(id) {
   try {
-    const [tokens, rewards] = await Promise.all([GET('/api/tokens'), GET('/api/recompensas')]);
-    renderWallet(tokens);
-    renderRewards(rewards, tokens.saldo_tokens);
-    renderHistory(tokens.historial);
+    const tarea = await GET(`/api/tareas/${id}`);
+    renderTaskDetail(tarea);
   } catch (e) {
-    showToast(e.message, 'error', 'Error al cargar tokens');
+    showToast(e.message, 'error', 'Error al cargar detalle');
+    modals.close('task-detail-modal');
   }
 }
 
-function renderWallet(tokens) {
-  $('#saldo-tokens').textContent = tokens.saldo_tokens.toLocaleString();
-  $('#racha-dias').textContent = tokens.racha_dias;
-}
+function renderTaskDetail(t) {
+  if (!t) return;
 
-function renderRewards(rewards, saldo) {
-  const grid = $('#recompensas');
-  const empty = $('#empty-rewards');
+  const body = $('#task-detail-body');
+  const btnComplete = $('#task-detail-complete');
+  const linkClassroom = $('#task-detail-open-classroom');
 
-  if (rewards.length === 0) {
-    grid.innerHTML = '';
-    empty.hidden = false;
-    return;
-  }
-  empty.hidden = true;
+  const hecha = t.estado === 'entregada';
+  const dueDate = new Date(t.fecha_limite);
+  const isOverdue = !hecha && dueDate < new Date();
 
-  grid.innerHTML = rewards.map(r => `
-    <article class="reward-card ${saldo < r.costo_tokens ? 'reward-card--unavailable' : ''}" role="listitem">
-      <div class="reward-card__icon" aria-hidden="true">🎁</div>
-      <div class="reward-card__info">
-        <h3 class="reward-card__name">${esc(r.nombre)}</h3>
-        <div class="reward-card__cost">${r.costo_tokens}</div>
+  // Title
+  $('#task-detail-modal-title').textContent = t.titulo;
+
+  // Course badge
+  const courseColorValue = courseColor(t.id_curso);
+  const badgeClass = `badge badge--${t.estado_visible} badge--lg`;
+
+  // Format dates
+  const fechaLimiteStr = fmtDate.format(dueDate);
+  const fechaEntregaStr = t.fecha_entrega ? fmtDate.format(new Date(t.fecha_entrega)) : '—';
+
+  // Progress ring
+  const progressPct = t.avance_pct || 0;
+  const ringColor = hecha ? 'var(--color-success)' : isOverdue ? 'var(--color-error)' : 'var(--color-primary)';
+
+  body.innerHTML = `
+    <div class="task-detail">
+      <div class="task-detail__header">
+        <div class="task-detail__course" style="border-left-color: ${courseColorValue};">
+          <span class="task-detail__course-name">${esc(t.curso)}</span>
+          <span class="${badgeClass}">${ETIQUETA_ESTADO[t.estado_visible]}</span>
+        </div>
       </div>
-      <button class="btn btn--primary reward-card__action" data-reward="${r.id_recompensa}" ${saldo < r.costo_tokens ? 'disabled' : ''}>
-        ${saldo < r.costo_tokens ? `Faltan ${r.costo_tokens - saldo}` : 'Canjear'}
-      </button>
-    </article>
-  `).join('');
 
-  grid.querySelectorAll('[data-reward]').forEach(btn => {
-    btn.addEventListener('click', async () => {
+      <div class="task-detail__progress-ring">
+        <svg width="120" height="120" viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="50" fill="none" stroke="var(--color-border)" stroke-width="8"/>
+          <circle cx="60" cy="60" r="50" fill="none" stroke="${ringColor}" stroke-width="8"
+            stroke-dasharray="${2 * Math.PI * 50}" stroke-dashoffset="${2 * Math.PI * 50 * (1 - progressPct / 100)}"
+            stroke-linecap="round" style="transform: rotate(-90deg); transform-origin: 60px 60px;"/>
+        </svg>
+        <div class="task-detail__progress-center">${progressPct}%</div>
+      </div>
+
+      <div class="task-detail__meta-grid">
+        <div class="task-detail__meta-item">
+          <span class="task-detail__meta-label">Fecha límite</span>
+          <span class="task-detail__meta-value ${isOverdue && !hecha ? 'task-detail__meta-value--overdue' : ''}">${esc(fechaLimiteStr)}</span>
+        </div>
+        <div class="task-detail__meta-item">
+          <span class="task-detail__meta-label">Estado</span>
+          <span class="task-detail__meta-value">${hecha ? `Entregada el ${esc(fechaEntregaStr)}` : (isOverdue ? 'Vencida' : 'Pendiente')}</span>
+        </div>
+        <div class="task-detail__meta-item">
+          <span class="task-detail__meta-label">Avance actual</span>
+          <span class="task-detail__meta-value">${progressPct}%</span>
+        </div>
+      </div>
+
+      ${t.descripcion ? `
+        <div class="task-detail__description">
+          <h4>Descripción</h4>
+          <div class="task-detail__description-text">${esc(t.descripcion)}</div>
+        </div>
+      ` : ''}
+
+      <div class="task-detail__progress-slider">
+        <label class="task-detail__slider-label" for="detail-progress-slider">Actualizar avance</label>
+        <div class="task-detail__slider-wrapper">
+          <input type="range" id="detail-progress-slider" class="task-detail__slider" min="0" max="100" step="5" value="${progressPct}" ${hecha ? 'disabled' : ''} aria-label="Porcentaje de avance">
+          <output id="detail-progress-output" class="task-detail__slider-output">${progressPct}%</output>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Show/hide buttons
+  if (hecha) {
+    btnComplete.hidden = true;
+  } else {
+    btnComplete.hidden = false;
+  }
+
+  if (t.enlace) {
+    linkClassroom.hidden = false;
+    linkClassroom.href = t.enlace;
+  } else {
+    linkClassroom.hidden = true;
+  }
+
+  // Attach listeners
+  attachTaskDetailListeners(t.id_tarea, hecha);
+}
+
+function attachTaskDetailListeners(id, hecha) {
+  // Progress slider
+  const slider = $('#detail-progress-slider');
+  const output = $('#detail-progress-output');
+
+  if (slider && !hecha) {
+    slider.replaceWith(slider.cloneNode(true));
+    const newSlider = $('#detail-progress-slider');
+    newSlider.addEventListener('input', () => {
+      output.textContent = newSlider.value + '%';
+    });
+    newSlider.addEventListener('change', debounce(async () => {
       try {
-        const res = await POST(`/api/recompensas/${btn.dataset.reward}/canjear`);
-        showToast(`Canjeaste: ${res.recompensa}`, 'success', '¡Recompensa obtenida!');
-        loadTokens();
+        await PATCH(`/api/tareas/${id}`, { avance_pct: Number(newSlider.value) });
+        showToast('Avance actualizado', 'success');
+        loadAgenda(); // Refresh the list
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    }, 300));
+  }
+
+  // Complete button
+  const btnComplete = $('#task-detail-complete');
+  if (btnComplete && !hecha) {
+    btnComplete.replaceWith(btnComplete.cloneNode(true));
+    $('#task-detail-complete').addEventListener('click', async () => {
+      try {
+        const res = await POST(`/api/tareas/${id}/completar`);
+        showToast(res.cantidad ? `¡Bien! Ganaste ${res.cantidad} tokens 🪙` : 'Entregada, pero fuera de tiempo: sin tokens', res.cantidad ? 'success' : 'warning');
+        modals.close('task-detail-modal');
+        loadAgenda();
         updateHeaderTokens();
       } catch (e) {
         showToast(e.message, 'error');
       }
     });
+  }
+}
+
+/* ---------- PAGE: PERFIL ---------- */
+async function loadPerfil() {
+  try {
+    const perfil = await GET('/api/usuario/perfil');
+    renderPerfil(perfil);
+  } catch (e) {
+    showToast(e.message, 'error', 'Error al cargar perfil');
+  }
+}
+
+function renderPerfil(perfil) {
+  if (!perfil) return;
+
+  // Avatar grande con iniciales
+  const avatarEl = $('#perfil-avatar-large');
+  const iniciales = perfil.nombre.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+  avatarEl.textContent = iniciales;
+  avatarEl.className = `avatar avatar--xl ${avatarColorClass(perfil.nombre)}`;
+  avatarEl.setAttribute('aria-label', `Avatar de ${perfil.nombre}`);
+
+  // Datos personales
+  $('#perfil-nombre').value = perfil.nombre;
+  $('#perfil-correo').value = perfil.correo;
+  $('#perfil-rol').value = perfil.rol === 'admin' ? 'Administrador' : 'Estudiante';
+
+  // Google conexión
+  const googleStatus = $('#perfil-google-status');
+  const btnConnect = $('#btn-google-connect');
+  const btnDisconnect = $('#btn-google-disconnect');
+
+  if (perfil.googleConectado) {
+    googleStatus.textContent = 'Conectado ✓';
+    googleStatus.style.color = 'var(--color-success)';
+    btnConnect.hidden = true;
+    btnDisconnect.hidden = false;
+  } else {
+    googleStatus.textContent = 'No conectado';
+    googleStatus.style.color = 'var(--color-text-muted)';
+    btnConnect.hidden = false;
+    btnDisconnect.hidden = true;
+  }
+
+  // Preferencias de notificaciones
+  renderPreferencias(perfil.preferencias_notificaciones);
+
+  // Event listeners
+  attachPerfilListeners();
+}
+
+function renderPreferencias(prefs) {
+  const grid = $('#preferencias-grid');
+  const opciones = [
+    { key: 'push', label: 'Notificaciones push', desc: 'Recibir avisos en el navegador', icon: '🔔' },
+    { key: 'correo', label: 'Notificaciones por correo', desc: 'Enviar avisos a tu email', icon: '📧' },
+    { key: 'recordatorio_24h', label: 'Recordatorio 24 horas antes', desc: 'Aviso un día antes de la entrega', icon: '⏰' },
+    { key: 'recordatorio_1h', label: 'Recordatorio 1 hora antes', desc: 'Aviso una hora antes de la entrega', icon: '⏱️' }
+  ];
+
+  grid.innerHTML = opciones.map(opt => `
+    <label class="setting-item form-check" style="flex-direction: row; align-items: flex-start; gap: var(--space-3);">
+      <span style="font-size: 1.5rem; flex-shrink: 0;" aria-hidden="true">${opt.icon}</span>
+      <div style="flex: 1; min-width: 0;">
+        <div style="font-weight: 500; color: var(--color-text);">${esc(opt.label)}</div>
+        <div class="setting-item__help">${esc(opt.desc)}</div>
+      </div>
+      <input type="checkbox" class="form-check-input" id="pref-${opt.key}" name="pref-${opt.key}" ${prefs[opt.key] ? 'checked' : ''} data-pref-key="${opt.key}">
+      <span class="form-check-label" style="position: absolute; width: 1px; height: 1px; overflow: hidden;">${esc(opt.label)}</span>
+    </label>
+  `).join('');
+}
+
+function attachPerfilListeners() {
+  // Guardar perfil (nombre)
+  const btnGuardar = $('#btn-guardar-perfil');
+  if (btnGuardar) {
+    btnGuardar.replaceWith(btnGuardar.cloneNode(true));
+    $('#btn-guardar-perfil').addEventListener('click', async () => {
+      const nombre = $('#perfil-nombre').value.trim();
+      if (!nombre) {
+        showToast('El nombre es obligatorio', 'error');
+        return;
+      }
+      try {
+        await PATCH('/api/usuario/perfil', { nombre });
+        showToast('Perfil actualizado', 'success');
+        loadPerfil(); // Recargar para actualizar header/sidebar
+        // Actualizar header si hay función
+        if (typeof updateHeaderTokens === 'function') updateHeaderTokens();
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    });
+  }
+
+  // Preferencias toggles
+  document.querySelectorAll('#preferencias-grid input[type="checkbox"]').forEach(cb => {
+    cb.replaceWith(cb.cloneNode(true));
+    document.querySelector(`#pref-${cb.dataset.prefKey}`).addEventListener('change', async () => {
+      const key = cb.dataset.prefKey;
+      const value = cb.checked;
+      try {
+        await PATCH('/api/usuario/preferencias', { [key]: value });
+        showToast('Preferencia guardada', 'success');
+      } catch (e) {
+        showToast(e.message, 'error');
+        cb.checked = !value; // Revert on error
+      }
+    });
+  });
+
+  // Desconectar Google
+  const btnGoogleDisconnect = $('#btn-google-disconnect');
+  if (btnGoogleDisconnect) {
+    btnGoogleDisconnect.replaceWith(btnGoogleDisconnect.cloneNode(true));
+    $('#btn-google-disconnect').addEventListener('click', async () => {
+      if (await confirmAction('¿Desconectar tu cuenta de Google? Perderás la sincronización automática con Classroom.', 'Desconectar Google', true)) {
+        try {
+          await DELETE('/api/usuario/google');
+          showToast('Google desconectado', 'success');
+          loadPerfil();
+        } catch (e) {
+          showToast(e.message, 'error');
+        }
+      }
+    });
+  }
+
+  // Cerrar sesión
+  const btnCerrarSesion = $('#btn-cerrar-sesion');
+  if (btnCerrarSesion) {
+    btnCerrarSesion.replaceWith(btnCerrarSesion.cloneNode(true));
+    $('#btn-cerrar-sesion').addEventListener('click', async () => {
+      if (await confirmAction('¿Cerrar sesión? Tendrás que iniciar sesión de nuevo.', 'Cerrar sesión', false)) {
+        // Limpiar estado local
+        localStorage.removeItem('capu_token'); // si se usa
+        localStorage.removeItem('capu_user'); // si se usa
+        showToast('Sesión cerrada', 'success');
+        // Redirigir a login (página principal)
+        window.location.href = '/';
+      }
+    });
+  }
+
+  // Eliminar cuenta
+  const btnEliminarCuenta = $('#btn-eliminar-cuenta');
+  if (btnEliminarCuenta) {
+    btnEliminarCuenta.replaceWith(btnEliminarCuenta.cloneNode(true));
+    $('#btn-eliminar-cuenta').addEventListener('click', async () => {
+      // Doble confirmación para acción destructiva
+      const first = await confirmAction('¿Eliminar tu cuenta PERMANENTEMENTE? Se borrarán todos tus datos, tareas, tokens y preferencias. Esta acción NO SE PUEDE DESHACER.', 'Eliminar cuenta', true);
+      if (!first) return;
+
+      // Segunda confirmación con prompt
+      const input = prompt('ÚLTIMA CONFIRMACIÓN: Escribe "ELIMINAR" para confirmar la eliminación permanente de tu cuenta:');
+      if (input !== 'ELIMINAR') {
+        showToast('Eliminación cancelada: el texto no coincide', 'warning');
+        return;
+      }
+
+      try {
+        await DELETE('/api/usuario/cuenta');
+        showToast('Cuenta eliminada', 'success');
+        localStorage.clear();
+        window.location.href = '/';
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    });
+  }
+}
+
+/* ---------- Header Tokens Update ---------- */
+async function updateHeaderTokens() {
+  try {
+    const t = await GET('/api/tokens');
+    $('#saldo').textContent = t.saldo_tokens;
+    $('#racha').textContent = t.racha_dias;
+  } catch { /* silencioso */ }
+}
+
+/* ============================================================
+   ADMIN PAGES
+   ============================================================ */
+
+// Admin: Usuarios
+async function loadAdminUsuarios() {
+  try {
+    const usuarios = await GET('/api/admin/usuarios');
+    renderAdminUsuarios(usuarios);
+  } catch (e) {
+    showToast(e.message, 'error', 'Error al cargar usuarios');
+  }
+}
+
+function renderAdminUsuarios(usuarios) {
+  const tbody = $('#admin-users-body');
+  const empty = $('#empty-admin-users');
+  const table = $('#admin-users-table');
+
+  if (!usuarios.length) {
+    tbody.innerHTML = '';
+    table.hidden = true;
+    empty.hidden = false;
+    return;
+  }
+  table.hidden = false;
+  empty.hidden = true;
+
+  tbody.innerHTML = usuarios.map(u => `
+    <tr>
+      <td data-label="Usuario">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="avatar avatar--sm ${avatarColorClass(u.nombre)}">${u.nombre.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase()}</span>
+          <span>${esc(u.nombre)}</span>
+        </div>
+      </td>
+      <td data-label="Correo">${esc(u.correo)}</td>
+      <td data-label="Rol">
+        <span class="badge role-badge role-badge--${u.rol}">${u.rol === 'admin' ? 'Administrador' : 'Estudiante'}</span>
+      </td>
+      <td data-label="Tokens">${(u.saldo_tokens || 0).toLocaleString()} 🪙</td>
+      <td data-label="Racha">${u.racha_dias || 0} días</td>
+      <td data-label="Última sincronización">${u.ultima_sync ? fmtDateShort.format(new Date(u.ultima_sync)) : '—'}</td>
+      <td data-label="Acciones">
+        <div style="display:flex;gap:4px;">
+          <button class="btn btn--ghost btn--sm btn--icon" data-action="toggle-role" data-user-id="${u.id_usuario}" aria-label="Cambiar rol">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+
+  tbody.querySelectorAll('[data-action="toggle-role"]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.userId;
+      const currentRole = btn.closest('tr').querySelector('.role-badge').textContent.includes('Admin') ? 'admin' : 'estudiante';
+      const newRole = currentRole === 'admin' ? 'estudiante' : 'admin';
+      if (await confirmAction(`¿Cambiar rol a ${newRole}?`, 'Cambiar rol', false)) {
+        try {
+          await PATCH(`/api/admin/usuarios/${id}/rol`, { rol: newRole });
+          showToast('Rol actualizado', 'success');
+          loadAdminUsuarios();
+        } catch (e) { showToast(e.message, 'error'); }
+      }
+    });
   });
 }
 
-function renderHistory(historial) {
-  const list = $('#historial');
-  if (!historial.length) {
-    list.innerHTML = '<div class="empty-state" style="padding: var(--space-6);"><p style="color: var(--color-text-secondary);">Aún no tienes movimientos.</p></div>';
+// Admin: Cursos
+async function loadAdminCursos() {
+  try {
+    const cursos = await GET('/api/admin/cursos');
+    renderAdminCursos(cursos);
+  } catch (e) {
+    showToast(e.message, 'error', 'Error al cargar cursos');
+  }
+}
+
+function renderAdminCursos(cursos) {
+  const tbody = $('#admin-cursos-body');
+  const empty = $('#empty-admin-cursos');
+  const table = $('#admin-cursos-table');
+
+  if (!cursos.length) {
+    tbody.innerHTML = '';
+    table.hidden = true;
+    empty.hidden = false;
     return;
   }
-  list.innerHTML = historial.map(h => `
-    <div class="transaction-item" role="listitem">
+  table.hidden = false;
+  empty.hidden = true;
+
+  tbody.innerHTML = cursos.map(c => `
+    <tr>
+      <td data-label="Curso">${esc(c.nombre)}</td>
+      <td data-label="Propietario">${esc(c.usuario_nombre)}</td>
+      <td data-label="Classroom ID">${esc(c.classroom_id)}</td>
+      <td data-label="Tareas">${c.tareas_count || 0}</td>
+      <td data-label="Última sincronización">${c.ultima_sync ? fmtDateShort.format(new Date(c.ultima_sync)) : '—'}</td>
+    </tr>
+  `).join('');
+}
+
+// Admin: Recompensas
+async function loadAdminRecompensas() {
+  try {
+    const recompensas = await GET('/api/admin/recompensas');
+    renderAdminRecompensas(recompensas);
+  } catch (e) {
+    showToast(e.message, 'error', 'Error al cargar recompensas');
+  }
+}
+
+function renderAdminRecompensas(recompensas) {
+  const grid = $('#admin-rewards-grid');
+  const empty = $('#empty-admin-rewards');
+
+  if (!recompensas.length) {
+    grid.innerHTML = '';
+    grid.hidden = true;
+    empty.hidden = false;
+    return;
+  }
+  grid.hidden = false;
+  empty.hidden = true;
+
+  grid.innerHTML = recompensas.map(r => `
+    <article class="reward-card" data-reward-id="${r.id_recompensa}">
+      <div class="reward-card__header">
+        <h3 class="reward-card__name">${esc(r.nombre)}</h3>
+        <span class="badge badge--${r.activa ? 'success' : 'secondary'}">${r.activa ? 'Activa' : 'Inactiva'}</span>
+      </div>
+      <div class="reward-card__cost">${esc(r.costo_tokens)} 🪙</div>
+      <div class="reward-card__actions">
+        <button class="btn btn--ghost btn--sm" data-edit-reward aria-label="Editar recompensa"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/></svg></button>
+        <button class="btn btn--danger btn--sm" data-delete-reward aria-label="Eliminar recompensa"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+      </div>
+    </article>
+  `).join('');
+
+  grid.querySelectorAll('[data-edit-reward]').forEach(btn => {
+    btn.addEventListener('click', () => openRewardModal(btn.closest('.reward-card').dataset.rewardId));
+  });
+  grid.querySelectorAll('[data-delete-reward]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.closest('.reward-card').dataset.rewardId;
+      if (await confirmAction('¿Eliminar esta recompensa?', 'Eliminar recompensa', true)) {
+        try {
+          await DELETE(`/api/admin/recompensas/${id}`);
+          showToast('Recompensa eliminada', 'success');
+          loadAdminRecompensas();
+        } catch (e) { showToast(e.message, 'error'); }
+      }
+    });
+  });
+}
+
+// Admin: Reward Modal
+function openRewardModal(id = null) {
+  const form = $('#reward-form');
+  form.reset();
+  $('#reward-id').value = id || '';
+  $('#reward-modal-title').textContent = id ? 'Editar recompensa' : 'Nueva recompensa';
+  $('#reward-submit').textContent = id ? 'Actualizar' : 'Crear';
+  $('#reward-active').checked = true;
+
+  if (id) {
+    GET(`/api/admin/recompensas/${id}`).then(r => {
+      $('#reward-name').value = r.nombre;
+      $('#reward-cost').value = r.costo_tokens;
+      $('#reward-active').checked = r.activa;
+    }).catch(e => showToast(e.message, 'error'));
+  }
+
+  modals.open('reward-modal');
+}
+
+$('#reward-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = $('#reward-id').value;
+  const data = {
+    nombre: $('#reward-name').value.trim(),
+    costo_tokens: Number($('#reward-cost').value),
+    activa: $('#reward-active').checked
+  };
+  if (!data.nombre || !data.costo_tokens) return;
+
+  try {
+    if (id) {
+      await PATCH(`/api/admin/recompensas/${id}`, data);
+      showToast('Recompensa actualizada', 'success');
+    } else {
+      await POST('/api/admin/recompensas', data);
+      showToast('Recompensa creada', 'success');
+    }
+    modals.close('reward-modal');
+    loadAdminRecompensas();
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+});
+
+$('#btn-add-reward').addEventListener('click', () => openRewardModal());
+$('#empty-add-reward-btn').addEventListener('click', () => openRewardModal());
+
+// Admin: Métricas
+async function loadAdminMetricas() {
+  try {
+    const metricas = await GET('/api/admin/metricas');
+    renderAdminMetricas(metricas);
+  } catch (e) {
+    showToast(e.message, 'error', 'Error al cargar métricas');
+  }
+}
+
+function renderAdminMetricas(m) {
+  const overview = $('#admin-metrics-overview');
+  const items = [
+    { value: m.total_usuarios || 0, label: 'Usuarios totales', icon: '👥', color: 'primary' },
+    { value: m.usuarios_admin || 0, label: 'Administradores', icon: '🛡️', color: 'warning' },
+    { value: m.cursos || 0, label: 'Cursos', icon: '📚', color: 'success' },
+    { value: m.tareas || 0, label: 'Tareas', icon: '📋', color: 'primary' },
+    { value: m.tareas_entregadas || 0, label: 'Entregadas', icon: '✅', color: 'success' },
+    { value: m.tareas_pendientes || 0, label: 'Pendientes', icon: '⏳', color: 'warning' },
+    { value: m.tokens_totales || 0, label: 'Tokens totales', icon: '🪙', color: 'primary' },
+    { value: m.recompensas || 0, label: 'Recompensas', icon: '🎁', color: 'success' }
+  ];
+
+  overview.innerHTML = items.map(item => `
+    <article class="metric-card">
+      <header class="metric-card__header">
+        <span class="metric-card__title">${esc(item.label)}</span>
+        <span aria-hidden="true" style="font-size: 1.5rem;">${item.icon}</span>
+      </header>
+      <div class="metric-card__value">${esc(item.value.toLocaleString())}</div>
+    </article>
+  `).join('');
+
+  // Charts
+  renderAdminCharts(m);
+}
+
+function renderAdminCharts(m) {
+  // Usuarios activos
+  const activeUsers = $('#chart-admin-active-users');
+  const days = 30;
+  const labels = Array.from({ length: days }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (days - 1 - i));
+    return `${d.getDate()}/${d.getMonth() + 1}`;
+  });
+  const activeData = labels.map(() => Math.floor(Math.random() * 20) + 5);
+
+  activeUsers.innerHTML = `
+    <div class="line-chart" role="img" aria-label="Usuarios activos últimos 30 días">
+      ${activeData.map((v, i) => `
+        <div class="line-chart__point" style="left: ${(i / (days - 1)) * 100}%; bottom: ${(v / Math.max(...activeData)) * 100}%;" title="${labels[i]}: ${v}"></div>
+      `).join('')}
+      <div class="line-chart__line" style="--points: ${activeData.map((v, i) => `${(i / (days - 1)) * 100}% ${100 - (v / Math.max(...activeData)) * 100}%`).join(', ')};"></div>
+      <div class="line-chart__labels">${labels.map((l, i) => i % 5 === 0 ? `<span style="left: ${(i / (days - 1)) * 100}%">${esc(l)}</span>` : '').join('')}</div>
+    </div>
+  `;
+
+  // Sync rate
+  const syncRate = $('#chart-admin-sync-rate');
+  const syncLabels = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+  const syncData = syncLabels.map(() => Math.floor(Math.random() * 30) + 70);
+
+  syncRate.innerHTML = `
+    <div class="bar-chart" role="img" aria-label="Tasa de éxito de sincronización por día">
+      ${syncData.map((v, i) => `
+        <div class="bar-chart__bar">
+          <span class="bar-chart__value">${v}%</span>
+          <div class="bar-chart__column" style="height: ${v}%"></div>
+          <span class="bar-chart__label">${syncLabels[i]}</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+// Admin: Config
+async function loadAdminConfig() {
+  try {
+    const config = await GET('/api/admin/oauth');
+    renderAdminConfig(config);
+  } catch (e) {
+    showToast(e.message, 'error', 'Error al cargar configuración');
+  }
+}
+
+function renderAdminConfig(config) {
+  $('#config-client-id').value = config.client_id || '';
+  $('#config-client-secret').value = config.client_secret || '';
+  $('#config-redirect-uri').value = config.redirect_uri || 'http://localhost:3000/api/auth/google/callback';
+  $('#config-sync-minutos').value = config.sync_minutos || 15;
+
+  // System info
+  const sysInfo = $('#system-info');
+  sysInfo.innerHTML = `
+    <div class="setting-item">
+      <label class="setting-item__label">Versión</label>
+      <span class="setting-item__value">0.3.0</span>
+    </div>
+    <div class="setting-item">
+      <label class="setting-item__label">Entorno</label>
+      <span class="setting-item__value">Desarrollo</span>
+    </div>
+    <div class="setting-item">
+      <label class="setting-item__label">Base de datos</label>
+      <span class="setting-item__value">SQLite</span>
+    </div>
+    <div class="setting-item">
+      <label class="setting-item__label">Node.js</label>
+      <span class="setting-item__value">${process.version}</span>
+    </div>
+  `;
+}
+
+$('#btn-save-config').addEventListener('click', async () => {
+  const data = {
+    client_id: $('#config-client-id').value.trim(),
+    client_secret: $('#config-client-secret').value.trim(),
+    redirect_uri: $('#config-redirect-uri').value.trim(),
+    sync_minutos: Number($('#config-sync-minutos').value)
+  };
+  try {
+    await POST('/api/admin/oauth', data);
+    showToast('Configuración guardada', 'success');
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+});
+
+$('#btn-test-oauth').addEventListener('click', async () => {
+  const config = {
+    client_id: $('#config-client-id').value.trim(),
+    client_secret: $('#config-client-secret').value.trim(),
+    redirect_uri: $('#config-redirect-uri').value.trim()
+  };
+  try {
+    const res = await POST('/api/admin/oauth/test', config);
+    showToast(res.ok ? 'Conexión exitosa' : 'Error de conexión', res.ok ? 'success' : 'error');
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+});
+
+/* ---------- PAGE: TOKENS ---------- */
+async function loadTokens() {
+  try {
+    const data = await GET('/api/tokens');
+    renderTokens(data);
+  } catch (e) {
+    showToast(e.message, 'error', 'Error al cargar tokens');
+  }
+}
+
+function renderTokens(data) {
+  $('#saldo').textContent = data.saldo_tokens;
+  $('#racha').textContent = data.racha_dias;
+
+  const list = $('#tokens-history');
+  if (!data.historial || !data.historial.length) {
+    list.innerHTML = '<div class="empty-state" style="padding: var(--space-6); text-align: center;"><div class="empty-state__icon">🪙</div><h3 class="empty-state__title">Sin transacciones</h3><p class="empty-state__message">No hay historial de tokens aún.</p></div>';
+    return;
+  }
+
+  list.innerHTML = data.historial.map(h => `
+    <div class="transaction-item">
       <div class="transaction-item__info">
-        <span class="transaction-item__reason">${esc(h.motivo)}</span>
+        <span class="transaction-item__motive">${esc(h.motivo)}</span>
         <time class="transaction-item__date" datetime="${h.fecha}">${esc(fmtDate.format(new Date(h.fecha)))}</time>
       </div>
       <span class="transaction-item__amount transaction-item__amount--${h.cantidad > 0 ? 'positive' : 'negative'}">
@@ -727,366 +1271,30 @@ function renderHeatmap(m) {
   heatmap.innerHTML = cells.join('');
 }
 
-/* ---------- Header Tokens Update ---------- */
-async function updateHeaderTokens() {
-  try {
-    const t = await GET('/api/tokens');
-    $('#saldo').textContent = t.saldo_tokens;
-    $('#racha').textContent = t.racha_dias;
-  } catch { /* silencioso */ }
-}
-
-/* ============================================================
-   ADMIN PAGES
-   ============================================================ */
-
-// Admin: Usuarios
-async function loadAdminUsuarios() {
-  try {
-    const usuarios = await GET('/api/admin/usuarios');
-    renderAdminUsuarios(usuarios);
-  } catch (e) {
-    showToast(e.message, 'error', 'Error al cargar usuarios');
-  }
-}
-
-function renderAdminUsuarios(usuarios) {
-  const tbody = $('#admin-users-body');
-  const empty = $('#empty-admin-users');
-  const table = $('#admin-users-table');
-
-  if (!usuarios.length) {
-    tbody.innerHTML = '';
-    table.hidden = true;
-    empty.hidden = false;
-    return;
-  }
-  table.hidden = false;
-  empty.hidden = true;
-
-  tbody.innerHTML = usuarios.map(u => `
-    <tr>
-      <td data-label="Usuario">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span class="avatar avatar--sm ${avatarColorClass(u.nombre)}">${u.nombre.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase()}</span>
-          <span>${esc(u.nombre)}</span>
-        </div>
-      </td>
-      <td data-label="Correo">${esc(u.correo)}</td>
-      <td data-label="Rol">
-        <span class="badge role-badge role-badge--${u.rol}">${u.rol === 'admin' ? 'Administrador' : 'Estudiante'}</span>
-      </td>
-      <td data-label="Tokens">${(u.saldo_tokens || 0).toLocaleString()} 🪙</td>
-      <td data-label="Racha">${u.racha_dias || 0} días</td>
-      <td data-label="Última sincronización">${u.ultima_sync ? fmtDateShort.format(new Date(u.ultima_sync)) : '—'}</td>
-      <td data-label="Acciones">
-        <div style="display:flex;gap:4px;">
-          <button class="btn btn--ghost btn--sm btn--icon" data-action="toggle-role" data-user-id="${u.id_usuario}" aria-label="Cambiar rol">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          </button>
-        </div>
-      </td>
-    </tr>
-  `).join('');
-
-  tbody.querySelectorAll('[data-action="toggle-role"]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id = btn.dataset.userId;
-      const currentRole = btn.closest('tr').querySelector('.role-badge').textContent.includes('Admin') ? 'admin' : 'estudiante';
-      const newRole = currentRole === 'admin' ? 'estudiante' : 'admin';
-      if (await confirmAction(`¿Cambiar rol a ${newRole}?`, 'Cambiar rol', false)) {
-        try {
-          await PATCH(`/api/admin/usuarios/${id}/rol`, { rol: newRole });
-          showToast('Rol actualizado', 'success');
-          loadAdminUsuarios();
-        } catch (e) { showToast(e.message, 'error'); }
+/* ---------- Alerts Polling ---------- */
+function pollAlerts() {
+  async function check() {
+    try {
+      const alertas = await GET('/api/alertas');
+      const count = alertas.filter(a => !a.leida).length;
+      if (count !== State.alertCount) {
+        State.alertCount = count;
+        const badge = $('#alert-badge');
+        if (badge) {
+          badge.textContent = count > 0 ? count : '';
+          badge.hidden = count === 0;
+        }
       }
-    });
-  });
-
-  // Search filter
-  $('#admin-users-search').addEventListener('input', debounce(e => {
-    const term = e.target.value.toLowerCase();
-    $$('#admin-users-body tr').forEach(row => {
-      const text = row.textContent.toLowerCase();
-      row.style.display = text.includes(term) ? '' : 'none';
-    });
-  }, 200));
-}
-
-// Admin: Cursos
-async function loadAdminCursos() {
-  try {
-    const cursos = await GET('/api/admin/cursos');
-    renderAdminCursos(cursos);
-  } catch (e) {
-    showToast(e.message, 'error', 'Error al cargar cursos');
+    } catch { /* silencioso */ }
   }
+  check();
+  setInterval(check, 30000);
 }
 
-function renderAdminCursos(cursos) {
-  const tbody = $('#admin-cursos-body');
-  const empty = $('#empty-admin-cursos');
-  const table = $('#admin-cursos-table');
-
-  if (!cursos.length) {
-    tbody.innerHTML = '';
-    table.hidden = true;
-    empty.hidden = false;
-    return;
-  }
-  table.hidden = false;
-  empty.hidden = true;
-
-  tbody.innerHTML = cursos.map(c => `
-    <tr>
-      <td data-label="Curso">${esc(c.nombre)}</td>
-      <td data-label="Propietario">${esc(c.propietario_nombre || '—')}</td>
-      <td data-label="Total tareas">${c.total_tareas || 0}</td>
-      <td data-label="Pendientes"><span class="badge badge--pendiente">${c.pendientes || 0}</span></td>
-      <td data-label="Vencidas"><span class="badge badge--vencida">${c.vencidas || 0}</span></td>
-      <td data-label="Entregadas"><span class="badge badge--entregada">${c.entregadas || 0}</span></td>
-      <td data-label="Última sync">${c.ultima_sync ? fmtDateShort.format(new Date(c.ultima_sync)) : '—'}</td>
-    </tr>
-  `).join('');
-
-  $('#admin-cursos-search').addEventListener('input', debounce(e => {
-    const term = e.target.value.toLowerCase();
-    $$('#admin-cursos-body tr').forEach(row => row.style.display = row.textContent.toLowerCase().includes(term) ? '' : 'none');
-  }, 200));
+function refreshCurrentPage() {
+  const page = pages[State.currentPage];
+  if (page?.init) page.init();
 }
-
-// Admin: Recompensas
-let rewardEditingId = null;
-
-async function loadAdminRecompensas() {
-  try {
-    const rewards = await GET('/api/admin/recompensas');
-    renderAdminRecompensas(rewards);
-  } catch (e) {
-    showToast(e.message, 'error', 'Error al cargar recompensas');
-  }
-}
-
-function renderAdminRecompensas(rewards) {
-  const grid = $('#admin-rewards-grid');
-  const empty = $('#empty-admin-rewards');
-
-  if (!rewards.length) {
-    grid.innerHTML = '';
-    empty.hidden = false;
-    return;
-  }
-  empty.hidden = true;
-
-  grid.innerHTML = rewards.map(r => `
-    <article class="reward-card" role="listitem" data-reward-id="${r.id_recompensa}">
-      <div class="reward-card__icon" aria-hidden="true">🎁</div>
-      <div class="reward-card__info" style="flex:1;">
-        <h3 class="reward-card__name">${esc(r.nombre)}</h3>
-        <div class="reward-card__cost">${r.costo_tokens} 🪙</div>
-        <span class="badge ${r.activa ? 'badge--success' : 'badge--neutral'}" style="font-size:var(--text-xs);">${r.activa ? 'Activa' : 'Inactiva'}</span>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:4px;">
-        <button class="btn btn--ghost btn--sm" data-action="edit-reward" data-id="${r.id_recompensa}">Editar</button>
-        <button class="btn btn--ghost btn--sm btn--danger" data-action="delete-reward" data-id="${r.id_recompensa}">Eliminar</button>
-      </div>
-    </article>
-  `).join('');
-
-  grid.querySelectorAll('[data-action="edit-reward"]').forEach(btn => btn.addEventListener('click', () => openRewardModal(btn.dataset.id)));
-  grid.querySelectorAll('[data-action="delete-reward"]').forEach(btn => btn.addEventListener('click', async () => {
-    if (await confirmAction('¿Eliminar esta recompensa?', 'Eliminar recompensa')) {
-      try {
-        await DELETE(`/api/admin/recompensas/${btn.dataset.id}`);
-        showToast('Recompensa eliminada', 'success');
-        loadAdminRecompensas();
-      } catch (e) { showToast(e.message, 'error'); }
-    }
-  }));
-}
-
-$('#btn-add-reward').addEventListener('click', () => openRewardModal());
-$('#empty-add-reward-btn').addEventListener('click', () => openRewardModal());
-
-function openRewardModal(id = null) {
-  rewardEditingId = id;
-  const form = $('#reward-form');
-  form.reset();
-  $('#reward-modal-title').textContent = id ? 'Editar recompensa' : 'Nueva recompensa';
-  $('#reward-submit').textContent = id ? 'Guardar' : 'Crear';
-  $('#reward-id').value = id || '';
-
-  if (id) {
-    // Fetch reward data
-    GET(`/api/admin/recompensas/${id}`).then(r => {
-      $('#reward-name').value = r.nombre;
-      $('#reward-cost').value = r.costo_tokens;
-      $('#reward-active').checked = r.activa;
-    }).catch(() => showToast('Error al cargar recompensa', 'error'));
-  }
-
-  modals.open('reward-modal');
-}
-
-$('#reward-form').addEventListener('submit', async e => {
-  e.preventDefault();
-  const name = $('#reward-name').value.trim();
-  const cost = parseInt($('#reward-cost').value, 10);
-  const activa = $('#reward-active').checked;
-
-  if (!name) { showToast('El nombre es obligatorio', 'error'); return; }
-  if (!cost || cost < 1) { showToast('El costo debe ser mayor a 0', 'error'); return; }
-
-  try {
-    if (rewardEditingId) {
-      await PATCH(`/api/admin/recompensas/${rewardEditingId}`, { nombre: name, costo_tokens: cost, activa });
-      showToast('Recompensa actualizada', 'success');
-    } else {
-      await POST('/api/admin/recompensas', { nombre: name, costo_tokens: cost, activa });
-      showToast('Recompensa creada', 'success');
-    }
-    modals.close('reward-modal');
-    loadAdminRecompensas();
-    loadTokens(); // Refresh user rewards too
-  } catch (e) { showToast(e.message, 'error'); }
-});
-
-// Admin: Métricas
-async function loadAdminMetricas() {
-  try {
-    const metrics = await GET('/api/admin/metricas');
-    renderAdminMetricas(metrics);
-    renderAdminCharts(metrics);
-  } catch (e) {
-    showToast(e.message, 'error', 'Error al cargar métricas');
-  }
-}
-
-function renderAdminMetricas(m) {
-  const container = $('#admin-metrics-overview');
-  const items = [
-    { value: m.total_usuarios || 0, label: 'Usuarios totales', icon: '👥', color: 'primary' },
-    { value: m.usuarios_activos_30d || 0, label: 'Activos (30d)', icon: '🟢', color: 'success' },
-    { value: m.total_cursos || 0, label: 'Cursos', icon: '📚', color: 'info' },
-    { value: m.total_tareas || 0, label: 'Tareas totales', icon: '📋', color: 'primary' },
-    { value: `${m.sync_success_rate || 0}%`, label: 'Tasa éxito sync', icon: '🔄', color: m.sync_success_rate > 90 ? 'success' : 'warning' },
-    { value: m.tokens_totales || 0, label: 'Tokens en circulación', icon: '🪙', color: 'warning' }
-  ];
-
-  container.innerHTML = items.map(item => `
-    <article class="metric-card">
-      <header class="metric-card__header">
-        <span class="metric-card__title">${esc(item.label)}</span>
-        <span aria-hidden="true" style="font-size: 1.5rem;">${item.icon}</span>
-      </header>
-      <div class="metric-card__value">${esc(item.value)}</div>
-    </article>
-  `).join('');
-}
-
-function renderAdminCharts(m) {
-  // Active users last 30 days
-  const days30 = Array.from({ length: 30 }, (_, i) => 30 - i).reverse();
-  const activeData = days30.map(() => Math.floor(Math.random() * 20) + 5);
-
-  $('#chart-admin-active-users').innerHTML = `
-    <div class="bar-chart" role="img" aria-label="Usuarios activos últimos 30 días">
-      ${activeData.map((v, i) => `
-        <div class="bar-chart__bar">
-          <div class="bar-chart__column" style="height: ${(v / Math.max(...activeData)) * 100}%"></div>
-          <span class="bar-chart__label">${i % 5 === 0 ? days30[i] : ''}</span>
-        </div>
-      `).join('')}
-    </div>
-  `;
-
-  // Sync success rate (weekly)
-  const weeks = ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'];
-  const syncData = weeks.map(() => 85 + Math.random() * 15);
-
-  $('#chart-admin-sync-rate').innerHTML = `
-    <div class="bar-chart" role="img" aria-label="Tasa de éxito de sincronización por semana">
-      ${syncData.map((v, i) => `
-        <div class="bar-chart__bar">
-          <span class="bar-chart__value">${v.toFixed(0)}%</span>
-          <div class="bar-chart__column bar-chart__column--success" style="height: ${v}%"></div>
-          <span class="bar-chart__label">${weeks[i]}</span>
-        </div>
-      `).join('')}
-    </div>
-  `;
-}
-
-// Admin: Configuración
-async function loadAdminConfig() {
-  try {
-    const config = await GET('/api/admin/oauth');
-    renderAdminConfig(config);
-  } catch (e) {
-    showToast(e.message, 'error', 'Error al cargar configuración');
-  }
-}
-
-function renderAdminConfig(config) {
-  $('#config-client-id').value = config.client_id || '';
-  $('#config-client-secret').value = ''; // Never show secret
-  $('#config-redirect-uri').value = config.redirect_uri || 'http://localhost:3000/api/auth/google/callback';
-  $('#config-sync-minutos').value = config.sync_minutos ?? 15;
-
-  // System info
-  $('#system-info').innerHTML = `
-    <div class="setting-item">
-      <span class="setting-item__label">Versión</span>
-      <span style="font-family:var(--font-mono);">${config.version || '0.3.0'}</span>
-    </div>
-    <div class="setting-item">
-      <span class="setting-item__label">Node.js</span>
-      <span style="font-family:var(--font-mono);">${process.version || 'N/A'}</span>
-    </div>
-    <div class="setting-item">
-      <span class="setting-item__label">Base de datos</span>
-      <span>${config.db_path || 'database/capu.db'}</span>
-    </div>
-    <div class="setting-item">
-      <span class="setting-item__label">Entorno</span>
-      <span>${config.env || 'development'}</span>
-    </div>
-  `;
-}
-
-$('#btn-save-config').addEventListener('click', async () => {
-  const data = {
-    client_id: $('#config-client-id').value.trim(),
-    client_secret: $('#config-client-secret').value || undefined,
-    redirect_uri: $('#config-redirect-uri').value.trim(),
-    sync_minutos: parseInt($('#config-sync-minutos').value, 10) || 0
-  };
-
-  if (!data.client_id) { showToast('Client ID es obligatorio', 'error'); return; }
-
-  try {
-    await POST('/api/admin/oauth', data);
-    showToast('Configuración guardada', 'success');
-    loadAdminConfig();
-  } catch (e) { showToast(e.message, 'error'); }
-});
-
-$('#btn-test-oauth').addEventListener('click', async () => {
-  const btn = $('#btn-test-oauth');
-  const original = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = 'Probando...';
-  try {
-    await POST('/api/admin/oauth/test', {});
-    showToast('Conexión exitosa', 'success');
-  } catch (e) {
-    showToast(e.message, 'error', 'Error de conexión');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = original;
-  }
-});
 
 /* ============================================================
    INITIALIZATION

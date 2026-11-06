@@ -10,6 +10,7 @@ const { sincronizar } = require('./services/sync');
 const alertas = require('./services/alertas');
 const oauth = require('./services/oauth');
 const admin = require('./services/admin');
+const usuario = require('./services/usuario');
 const mockAdapter = require('./services/classroom/mock');
 const googleAdapter = require('./services/classroom/google');
 
@@ -61,6 +62,25 @@ function createApp(db = openDb()) {
   app.delete('/api/auth/google', wrap(async () => { await oauth.desconectar(db, 1); return { ok: true }; }));
 
   // ============================================================
+  // Perfil de Usuario y Preferencias
+  // ============================================================
+  // Obtener perfil completo
+  app.get('/api/usuario/perfil', wrap(async () => usuario.getPerfil(db, 1)));
+
+  // Actualizar perfil (nombre)
+  app.patch('/api/usuario/perfil', wrap(async (req) => usuario.actualizarPerfil(db, 1, req.body)));
+
+  // Preferencias de notificaciones
+  app.get('/api/usuario/preferencias', wrap(async () => usuario.getPreferencias(db, 1)));
+  app.patch('/api/usuario/preferencias', wrap(async (req) => usuario.actualizarPreferencias(db, 1, req.body)));
+
+  // Desconectar Google (wrapper)
+  app.delete('/api/usuario/google', wrap(async () => usuario.desconectarGoogle(db, 1)));
+
+  // Eliminar cuenta
+  app.delete('/api/usuario/cuenta', wrap(async () => usuario.eliminarCuenta(db, 1)));
+
+  // ============================================================
   // RF-03: Sincronización
   // ============================================================
   app.post('/api/sync', wrap(async (req) => {
@@ -74,6 +94,11 @@ function createApp(db = openDb()) {
   // ============================================================
   app.get('/api/cursos', wrap(async () => db.prepare('SELECT id_curso, nombre FROM curso ORDER BY nombre').all()));
   app.get('/api/tareas', wrap(async (req) => tareas.listar(db, now(), { curso: req.query.curso, estado: req.query.estado })));
+  app.get('/api/tareas/:id', wrap(async (req) => {
+    const tarea = tareas.obtener(db, now(), Number(req.params.id));
+    if (!tarea) throw { status: 404, message: 'Tarea no encontrada' };
+    return tarea;
+  }));
 
   // ============================================================
   // RF-05: Seguimiento de avance

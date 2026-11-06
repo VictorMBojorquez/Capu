@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS usuario (
   google_id     TEXT UNIQUE,
   nombre        TEXT NOT NULL,
   correo        TEXT NOT NULL,
+  rol           TEXT NOT NULL DEFAULT 'estudiante' CHECK (rol IN ('estudiante','admin')),
   saldo_tokens  INTEGER NOT NULL DEFAULT 0 CHECK (saldo_tokens >= 0),
   racha_dias    INTEGER NOT NULL DEFAULT 0,
   ultima_entrega_ok TEXT            -- fecha (YYYY-MM-DD) de la última entrega a tiempo

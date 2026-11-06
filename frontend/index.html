@@ -1,63 +1,564 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" data-theme="auto">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>CAPU · Agenda inteligente</title>
   <meta name="description" content="Agenda inteligente con recordatorios y recompensas, integrada a Google Classroom.">
+  <meta name="theme-color" content="#C4571A" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#E87A2A" media="(prefers-color-scheme: dark)">
   <link rel="stylesheet" href="styles.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23C4571A'/><path d='M25 45 Q40 70 50 62 L78 28' stroke='white' stroke-width='9' fill='none' stroke-linecap='round'/></svg>">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23C4571A'/><path d='M25 45 Q40 70 50 62 L78 28' stroke='white' stroke-width='9' fill='none' stroke-linecap='round'/></svg>">
+  <link rel="manifest" href="manifest.json">
+  <!-- Preload critical assets -->
+  <link rel="preload" as="script" href="app.js">
 </head>
 <body>
-  <a class="skip" href="#principal">Saltar al contenido</a>
-  <header class="top">
-    <div class="marca">
-      <svg class="logo" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#C4571A"/><path d="M24 44 Q38 72 50 63 L78 26" stroke="#fff" stroke-width="9" fill="none" stroke-linecap="round"/><circle cx="40" cy="55" r="2.6" fill="#fff"/><circle cx="50" cy="55" r="2.6" fill="#fff"/></svg>
-      <h1>CAPU</h1>
+  <a href="#main-content" class="skip-link">Saltar al contenido principal</a>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Sidebar Backdrop (Mobile) -->
+  <div id="sidebar-backdrop" class="sidebar-backdrop" aria-hidden="true" tabindex="-1"></div>
+
+  <!-- Header -->
+  <header id="header" class="header" role="banner">
+    <div class="header__brand" aria-label="CAPU - Inicio">
+      <svg class="header__logo" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+        <rect width="100" height="100" rx="22" fill="#C4571A"/>
+        <path d="M24 44 Q38 72 50 63 L78 26" stroke="#fff" stroke-width="9" fill="none" stroke-linecap="round"/>
+        <circle cx="40" cy="55" r="2.6" fill="#fff"/>
+        <circle cx="50" cy="55" r="2.6" fill="#fff"/>
+      </svg>
+      <h1 class="header__title">CAPU</h1>
     </div>
-    <nav aria-label="Secciones" class="tabs" role="tablist">
-      <button role="tab" id="tab-agenda" aria-selected="true" aria-controls="vista-agenda">Agenda</button>
-      <button role="tab" id="tab-tokens" aria-selected="false" aria-controls="vista-tokens">Tokens</button>
-      <button role="tab" id="tab-resumen" aria-selected="false" aria-controls="vista-resumen">Resumen</button>
-    </nav>
-    <div class="acciones">
-      <span class="chip" id="chip-tokens" title="Saldo de tokens">🪙 <b id="saldo">0</b></span>
-      <span class="chip" id="chip-racha" title="Días consecutivos entregando a tiempo">🔥 <b id="racha">0</b></span>
-      <a class="btn secundario" id="btn-google" href="/api/auth/google/iniciar" hidden>Conectar con Google</a>
-      <button class="btn secundario" id="btn-sync">Sincronizar con Classroom</button>
+
+    <div class="header__actions">
+      <!-- Theme Toggle -->
+      <button id="theme-toggle" class="btn btn--ghost btn--icon" aria-label="Cambiar tema" aria-pressed="false" title="Cambiar tema">
+        <svg id="theme-icon-light" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        <svg id="theme-icon-dark" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+
+      <!-- Sidebar Toggle (Mobile) -->
+      <button id="sidebar-toggle" class="btn btn--ghost btn--icon" aria-label="Abrir menú" aria-expanded="false" aria-controls="sidebar">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+
+      <!-- User Menu Dropdown -->
+      <div class="dropdown" id="user-dropdown">
+        <button id="user-menu-trigger" class="btn btn--ghost header__user" aria-haspopup="true" aria-expanded="false" aria-label="Menú de usuario">
+          <div id="user-avatar" class="avatar" role="img" aria-label="Avatar de usuario"></div>
+          <span id="user-name" class="sidebar__user-name" style="display:none"></span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div id="user-menu" class="dropdown__menu" role="menu" aria-hidden="true" aria-labelledby="user-menu-trigger">
+          <div class="dropdown__header" id="user-menu-header"></div>
+          <div class="dropdown__divider"></div>
+          <button class="dropdown__item" role="menuitem" data-action="profile">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Perfil
+          </button>
+          <a class="dropdown__item" href="/api/auth/google/iniciar" id="btn-google" role="menuitem" hidden>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/></svg>
+            Conectar con Google
+          </a>
+          <button class="dropdown__item" role="menuitem" data-action="sync">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            Sincronizar ahora
+          </button>
+          <div class="dropdown__divider"></div>
+          <button class="dropdown__item dropdown__item--danger" role="menuitem" data-action="logout">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Cerrar sesión
+          </button>
+        </div>
+      </div>
     </div>
   </header>
 
-  <main id="principal">
-    <section id="vista-agenda" role="tabpanel" aria-labelledby="tab-agenda">
-      <div class="avisos" id="avisos" aria-live="polite"></div>
-      <div class="filtros">
-        <label>Curso <select id="f-curso"><option value="">Todos</option></select></label>
-        <label>Estado
-          <select id="f-estado">
-            <option value="">Todos</option><option value="pendiente">Pendiente</option><option value="en_progreso">En progreso</option>
-            <option value="vencida">Vencida</option><option value="entregada">Entregada</option>
-          </select>
-        </label>
+  <!-- Sidebar Navigation -->
+  <nav id="sidebar" class="sidebar" role="navigation" aria-label="Navegación principal">
+    <div class="sidebar__nav">
+      <div class="sidebar__section">
+        <h2 class="sidebar__section-title">Principal</h2>
+        <a href="#agenda" class="sidebar__item" data-page="agenda" aria-current="page" role="menuitem">
+          <svg class="sidebar__icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span class="sidebar__label">Agenda</span>
+        </a>
+        <a href="#tokens" class="sidebar__item" data-page="tokens" role="menuitem">
+          <svg class="sidebar__icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          <span class="sidebar__label">Tokens</span>
+        </a>
+        <a href="#resumen" class="sidebar__item" data-page="resumen" role="menuitem">
+          <svg class="sidebar__icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          <span class="sidebar__label">Resumen</span>
+        </a>
       </div>
-      <ul class="lista" id="lista-tareas" aria-label="Tareas"></ul>
-      <p class="vacio" id="vacio" hidden>Aún no hay tareas. Pulsa <b>Sincronizar con Classroom</b> para traerlas.</p>
+
+      <div class="sidebar__section" id="admin-section-nav" hidden>
+        <h2 class="sidebar__section-title">Administración</h2>
+        <a href="#admin-usuarios" class="sidebar__item" data-page="admin-usuarios" role="menuitem">
+          <svg class="sidebar__icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span class="sidebar__label">Usuarios</span>
+        </a>
+        <a href="#admin-cursos" class="sidebar__item" data-page="admin-cursos" role="menuitem">
+          <svg class="sidebar__icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 10v6M22 4v6M2 10v6M2 4v6M17 10h-10M17 4h-10"/></svg>
+          <span class="sidebar__label">Cursos</span>
+        </a>
+        <a href="#admin-recompensas" class="sidebar__item" data-page="admin-recompensas" role="menuitem">
+          <svg class="sidebar__icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          <span class="sidebar__label">Recompensas</span>
+        </a>
+        <a href="#admin-metricas" class="sidebar__item" data-page="admin-metricas" role="menuitem">
+          <svg class="sidebar__icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          <span class="sidebar__label">Métricas</span>
+        </a>
+        <a href="#admin-config" class="sidebar__item" data-page="admin-config" role="menuitem">
+          <svg class="sidebar__icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span class="sidebar__label">Configuración</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="sidebar__footer">
+      <div class="sidebar__user" id="sidebar-user">
+        <div id="sidebar-avatar" class="avatar" role="img" aria-label="Avatar de usuario"></div>
+        <div class="sidebar__user-info">
+          <div id="sidebar-user-name" class="sidebar__user-name"></div>
+          <div id="sidebar-user-email" class="sidebar__user-email"></div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Bottom Navigation (Mobile) -->
+  <nav class="bottom-nav" id="bottom-nav" role="navigation" aria-label="Navegación principal móvil">
+    <ul class="bottom-nav__list">
+      <li><a href="#agenda" class="bottom-nav__item" data-page="agenda" aria-current="page" role="menuitem"><svg class="bottom-nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Agenda</span></a></li>
+      <li><a href="#tokens" class="bottom-nav__item" data-page="tokens" role="menuitem"><svg class="bottom-nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><span>Tokens</span></a></li>
+      <li><a href="#resumen" class="bottom-nav__item" data-page="resumen" role="menuitem"><svg class="bottom-nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span>Resumen</span></a></li>
+    </ul>
+  </nav>
+
+  <!-- Main Content -->
+  <main id="main-content" class="main" role="main">
+    <!-- Page: Agenda -->
+    <section id="page-agenda" class="page" role="region" aria-label="Agenda de tareas">
+      <header class="page__header">
+        <div class="page__title-group">
+          <h1 class="page__title">Agenda</h1>
+          <p class="page__subtitle">Gestiona tus tareas y entregas de Classroom</p>
+        </div>
+        <div class="page__actions">
+          <button id="btn-sync" class="btn btn--primary" aria-label="Sincronizar con Google Classroom">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            <span>Sincronizar</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Stats Bar -->
+      <div class="stats-grid" id="agenda-stats" aria-label="Estadísticas rápidas">
+        <article class="stat-card" data-stat="pendientes">
+          <div class="stat-card__icon" style="background: var(--color-warning-bg); color: var(--color-warning);">⏳</div>
+          <div class="stat-card__value" id="stat-pendientes">0</div>
+          <div class="stat-card__label">Pendientes</div>
+        </article>
+        <article class="stat-card" data-stat="vencidas">
+          <div class="stat-card__icon" style="background: var(--color-error-bg); color: var(--color-error);">⛔</div>
+          <div class="stat-card__value" id="stat-vencidas">0</div>
+          <div class="stat-card__label">Vencidas</div>
+        </article>
+        <article class="stat-card" data-stat="entregadas-semana">
+          <div class="stat-card__icon" style="background: var(--color-success-bg); color: var(--color-success);">✅</div>
+          <div class="stat-card__value" id="stat-entregadas-semana">0</div>
+          <div class="stat-card__label">Entregadas esta semana</div>
+        </article>
+        <article class="stat-card" data-stat="proximas-24h">
+          <div class="stat-card__icon" style="background: var(--color-info-bg); color: var(--color-info);">⏰</div>
+          <div class="stat-card__value" id="stat-proximas-24h">0</div>
+          <div class="stat-card__label">Vencen en 24h</div>
+        </article>
+      </div>
+
+      <!-- Filters -->
+      <div class="tasks-header">
+        <div class="tasks-filters" role="search" aria-label="Filtros de tareas">
+          <div class="filter-group">
+            <span class="filter-label" for="f-curso">Curso</span>
+            <select id="f-curso" class="filter-select" aria-label="Filtrar por curso">
+              <option value="">Todos los cursos</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <span class="filter-label" for="f-estado">Estado</span>
+            <select id="f-estado" class="filter-select" aria-label="Filtrar por estado">
+              <option value="">Todos los estados</option>
+              <option value="pendiente">Pendiente</option>
+              <option value="en_progreso">En progreso</option>
+              <option value="vencida">Vencida</option>
+              <option value="entregada">Entregada</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tasks List -->
+      <div class="tasks-list" id="lista-tareas" role="list" aria-label="Lista de tareas">
+        <!-- Tasks rendered here -->
+      </div>
+
+      <!-- Empty State -->
+      <div id="empty-agenda" class="empty-state" hidden>
+        <div class="empty-state__icon" aria-hidden="true">📋</div>
+        <h2 class="empty-state__title">No hay tareas</h2>
+        <p class="empty-state__message">Pulsa <strong>Sincronizar</strong> para traer tus tareas de Google Classroom.</p>
+        <button class="btn btn--primary empty-state__action" id="empty-sync-btn">Sincronizar ahora</button>
+      </div>
     </section>
 
-    <section id="vista-tokens" role="tabpanel" aria-labelledby="tab-tokens" hidden>
-      <h2>Recompensas</h2>
-      <div class="rejilla" id="recompensas"></div>
-      <h2>Historial de tokens</h2>
-      <ul class="historial" id="historial"></ul>
+    <!-- Page: Tokens -->
+    <section id="page-tokens" class="page" hidden role="region" aria-label="Tokens y recompensas">
+      <header class="page__header">
+        <div class="page__title-group">
+          <h1 class="page__title">Tokens</h1>
+          <p class="page__subtitle">Gana tokens por entregas a tiempo y cámbialos por recompensas</p>
+        </div>
+      </header>
+
+      <!-- Wallet Header -->
+      <div class="wallet-header" id="wallet-header">
+        <div class="wallet-header__content">
+          <p class="wallet-header__label">Saldo disponible</p>
+          <div class="wallet-header__balance" id="saldo-tokens">0</div>
+          <div class="wallet-header__streak" id="streak-display">
+            <span class="wallet-header__streak-icon" aria-hidden="true">🔥</span>
+            <span id="racha-dias">0</span> días de racha
+          </div>
+        </div>
+      </div>
+
+      <!-- Rewards -->
+      <section aria-labelledby="rewards-title">
+        <h2 id="rewards-title" class="page__title" style="margin-bottom: var(--space-4);">Recompensas disponibles</h2>
+        <div class="rewards-grid" id="recompensas" role="list">
+          <!-- Rewards rendered here -->
+        </div>
+        <div id="empty-rewards" class="empty-state" hidden>
+          <div class="empty-state__icon" aria-hidden="true">🎁</div>
+          <h2 class="empty-state__title">Sin recompensas</h2>
+          <p class="empty-state__message">El administrador aún no ha configurado recompensas.</p>
+        </div>
+      </section>
+
+      <!-- Transaction History -->
+      <section aria-labelledby="history-title" style="margin-top: var(--space-8);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); flex-wrap: wrap; gap: var(--space-3);">
+          <h2 id="history-title" class="page__title" style="margin: 0;">Historial de tokens</h2>
+        </div>
+        <div class="transaction-list" id="historial" role="list">
+          <!-- Transactions rendered here -->
+        </div>
+      </section>
     </section>
 
-    <section id="vista-resumen" role="tabpanel" aria-labelledby="tab-resumen" hidden>
-      <h2>Tu progreso</h2>
-      <div class="rejilla metricas" id="metricas"></div>
+    <!-- Page: Resumen -->
+    <section id="page-resumen" class="page" hidden role="region" aria-label="Resumen y analíticas">
+      <header class="page__header">
+        <div class="page__title-group">
+          <h1 class="page__title">Resumen</h1>
+          <p class="page__subtitle">Tu progreso y analíticas de productividad</p>
+        </div>
+      </header>
+
+      <!-- Metrics Overview -->
+      <div class="metrics-overview" id="metrics-overview" role="region" aria-label="Indicadores clave">
+        <!-- Metric cards rendered here -->
+      </div>
+
+      <!-- Charts Section -->
+      <section aria-labelledby="charts-title">
+        <h2 id="charts-title" class="page__title" style="margin-bottom: var(--space-4);">Actividad</h2>
+        <div class="content-grid content-grid--2">
+          <!-- Completion Rate Chart -->
+          <article class="chart-container">
+            <h3 class="chart-container__title">Tasa de entrega semanal</h3>
+            <div class="chart-wrapper" id="chart-completion-rate" role="img" aria-label="Gráfico de barras de tasa de entrega por día de la semana"></div>
+          </article>
+
+          <!-- Token Trend Chart -->
+          <article class="chart-container">
+            <h3 class="chart-container__title">Tokens ganados (últimas 8 semanas)</h3>
+            <div class="chart-wrapper" id="chart-token-trend" role="img" aria-label="Gráfico de barras de tokens ganados por semana"></div>
+          </article>
+        </div>
+
+        <!-- Heatmap -->
+        <article class="chart-container">
+          <h3 class="chart-container__title">Mapa de calor de entregas</h3>
+          <div class="heatmap" id="heatmap-deliveries" role="img" aria-label="Mapa de calor semanal de actividad"></div>
+          <div class="heatmap__legend">
+            <span>Menos activo</span>
+            <span class="heatmap__legend-item"><span class="heatmap__legend-color" style="background: var(--color-bg-secondary);"></span></span>
+            <span class="heatmap__legend-item"><span class="heatmap__legend-color" style="background: var(--color-primary-bg);"></span></span>
+            <span class="heatmap__legend-item"><span class="heatmap__legend-color" style="background: var(--color-primary);"></span></span>
+            <span class="heatmap__legend-item"><span class="heatmap__legend-color" style="background: var(--color-primary-dark);"></span></span>
+            <span class="heatmap__legend-item"><span class="heatmap__legend-color" style="background: #7A3310;"></span></span>
+            <span>Más activo</span>
+          </div>
+        </article>
+      </section>
+    </section>
+
+    <!-- Page: Admin - Usuarios -->
+    <section id="page-admin-usuarios" class="page admin-section" hidden role="region" aria-label="Administración de usuarios">
+      <header class="page__header">
+        <div class="page__title-group">
+          <h1 class="page__title">Usuarios</h1>
+          <p class="page__subtitle">Gestiona roles y ve estadísticas de usuarios</p>
+        </div>
+      </header>
+
+      <div class="admin-table-toolbar">
+        <div class="admin-search">
+          <svg class="admin-search__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input type="search" id="admin-users-search" class="admin-search__input" placeholder="Buscar usuarios..." aria-label="Buscar usuarios">
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="table table-responsive" id="admin-users-table" role="grid">
+          <thead>
+            <tr>
+              <th scope="col">Usuario</th>
+              <th scope="col">Correo</th>
+              <th scope="col">Rol</th>
+              <th scope="col">Tokens</th>
+              <th scope="col">Racha</th>
+              <th scope="col">Última sincronización</th>
+              <th scope="col">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="admin-users-body">
+            <!-- Users rendered here -->
+          </tbody>
+        </table>
+      </div>
+
+      <div id="empty-admin-users" class="empty-state" hidden>
+        <div class="empty-state__icon" aria-hidden="true">👥</div>
+        <h2 class="empty-state__title">Sin usuarios</h2>
+        <p class="empty-state__message">No hay usuarios registrados en el sistema.</p>
+      </div>
+    </section>
+
+    <!-- Page: Admin - Cursos -->
+    <section id="page-admin-cursos" class="page admin-section" hidden role="region" aria-label="Administración de cursos">
+      <header class="page__header">
+        <div class="page__title-group">
+          <h1 class="page__title">Cursos</h1>
+          <p class="page__subtitle">Visión general de todos los cursos y sus tareas</p>
+        </div>
+      </header>
+
+      <div class="admin-table-toolbar">
+        <div class="admin-search">
+          <svg class="admin-search__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input type="search" id="admin-cursos-search" class="admin-search__input" placeholder="Buscar cursos..." aria-label="Buscar cursos">
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="table table-responsive" id="admin-cursos-table" role="grid">
+          <thead>
+            <tr>
+              <th scope="col">Curso</th>
+              <th scope="col">Propietario</th>
+              <th scope="col">Total tareas</th>
+              <th scope="col">Pendientes</th>
+              <th scope="col">Vencidas</th>
+              <th scope="col">Entregadas</th>
+              <th scope="col">Última sync</th>
+            </tr>
+          </thead>
+          <tbody id="admin-cursos-body">
+            <!-- Courses rendered here -->
+          </tbody>
+        </table>
+      </div>
+
+      <div id="empty-admin-cursos" class="empty-state" hidden>
+        <div class="empty-state__icon" aria-hidden="true">📚</div>
+        <h2 class="empty-state__title">Sin cursos</h2>
+        <p class="empty-state__message">No hay cursos sincronizados aún.</p>
+      </div>
+    </section>
+
+    <!-- Page: Admin - Recompensas -->
+    <section id="page-admin-recompensas" class="page admin-section" hidden role="region" aria-label="Administración de recompensas">
+      <header class="page__header">
+        <div class="page__title-group">
+          <h1 class="page__title">Recompensas</h1>
+          <p class="page__subtitle">Crea y gestiona las recompensas disponibles para canje</p>
+        </div>
+        <div class="page__actions">
+          <button class="btn btn--primary" id="btn-add-reward" aria-label="Añadir nueva recompensa">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nueva recompensa
+          </button>
+        </div>
+      </header>
+
+      <div class="rewards-grid" id="admin-rewards-grid" role="list">
+        <!-- Admin rewards rendered here -->
+      </div>
+
+      <div id="empty-admin-rewards" class="empty-state" hidden>
+        <div class="empty-state__icon" aria-hidden="true">🎁</div>
+        <h2 class="empty-state__title">Sin recompensas</h2>
+        <p class="empty-state__message">Crea la primera recompensa para que los estudiantes puedan canjear sus tokens.</p>
+        <button class="btn btn--primary empty-state__action" id="empty-add-reward-btn">Crear recompensa</button>
+      </div>
+    </section>
+
+    <!-- Page: Admin - Métricas -->
+    <section id="page-admin-metricas" class="page admin-section" hidden role="region" aria-label="Métricas del sistema">
+      <header class="page__header">
+        <div class="page__title-group">
+          <h1 class="page__title">Métricas del sistema</h1>
+          <p class="page__subtitle">Salud y uso global de la plataforma</p>
+        </div>
+      </header>
+
+      <div class="metrics-overview" id="admin-metrics-overview">
+        <!-- Admin metrics rendered here -->
+      </div>
+
+      <section aria-labelledby="admin-charts-title">
+        <h2 id="admin-charts-title" class="page__title" style="margin-bottom: var(--space-4);">Tendencias</h2>
+        <div class="content-grid content-grid--2">
+          <article class="chart-container">
+            <h3 class="chart-container__title">Usuarios activos (30 días)</h3>
+            <div class="chart-wrapper" id="chart-admin-active-users"></div>
+          </article>
+          <article class="chart-container">
+            <h3 class="chart-container__title">Tasa de éxito de sincronización</h3>
+            <div class="chart-wrapper" id="chart-admin-sync-rate"></div>
+          </article>
+        </div>
+      </section>
+    </section>
+
+    <!-- Page: Admin - Configuración -->
+    <section id="page-admin-config" class="page admin-section" hidden role="region" aria-label="Configuración del sistema">
+      <header class="page__header">
+        <div class="page__title-group">
+          <h1 class="page__title">Configuración</h1>
+          <p class="page__subtitle">Parámetros globales de la aplicación</p>
+        </div>
+      </header>
+
+      <!-- OAuth Settings -->
+      <article class="settings-panel">
+        <h2 class="settings-panel__title">Google Classroom (OAuth 2.0)</h2>
+        <p class="settings-panel__description">Configura las credenciales para la integración con Google Classroom.</p>
+        <div class="settings-grid">
+          <div class="setting-item">
+            <label class="setting-item__label" for="config-client-id">Client ID</label>
+            <input type="text" id="config-client-id" class="form-input" placeholder="xxxxxxxxxx.apps.googleusercontent.com" aria-describedby="help-client-id">
+            <p id="help-client-id" class="setting-item__help">Obtén esto en Google Cloud Console > Credenciales</p>
+          </div>
+          <div class="setting-item">
+            <label class="setting-item__label" for="config-client-secret">Client Secret</label>
+            <input type="password" id="config-client-secret" class="form-input" placeholder="GOCSPX-xxxxxxxxxx" aria-describedby="help-client-secret">
+            <p id="help-client-secret" class="setting-item__help">Secreto del cliente OAuth. No se muestra por seguridad.</p>
+          </div>
+          <div class="setting-item">
+            <label class="setting-item__label" for="config-redirect-uri">Redirect URI</label>
+            <input type="url" id="config-redirect-uri" class="form-input" value="http://localhost:3000/api/auth/google/callback" readonly aria-describedby="help-redirect-uri">
+            <p id="help-redirect-uri" class="setting-item__help">Debe coincidir exactamente con lo configurado en Google Cloud Console</p>
+          </div>
+          <div class="setting-item">
+            <label class="setting-item__label" for="config-sync-minutos">Intervalo de sincronización (minutos)</label>
+            <input type="number" id="config-sync-minutos" class="form-input" min="0" max="1440" step="5" value="15" aria-describedby="help-sync-minutos">
+            <p id="help-sync-minutos" class="setting-item__help">0 para desactivar sincronización automática</p>
+          </div>
+        </div>
+        <div style="margin-top: var(--space-4); display: flex; gap: var(--space-3); flex-wrap: wrap;">
+          <button class="btn btn--primary" id="btn-save-config">Guardar configuración</button>
+          <button class="btn btn--secondary" id="btn-test-oauth">Probar conexión</button>
+        </div>
+      </article>
+
+      <!-- System Info -->
+      <article class="settings-panel">
+        <h2 class="settings-panel__title">Información del sistema</h2>
+        <div class="settings-grid" id="system-info">
+          <!-- System info rendered here -->
+        </div>
+      </article>
     </section>
   </main>
 
-  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <!-- Modals -->
+  <!-- Reward Modal (Admin) -->
+  <div id="reward-modal" class="modal-backdrop" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="reward-modal-title">
+    <div class="modal">
+      <header class="modal__header">
+        <h2 id="reward-modal-title" class="modal__title">Nueva recompensa</h2>
+        <button class="modal__close" aria-label="Cerrar" data-close-modal>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </header>
+      <form id="reward-form" class="modal__body" novalidate>
+        <input type="hidden" id="reward-id">
+        <div class="form-group">
+          <label class="form-label" for="reward-name">Nombre <span class="required"></span></label>
+          <input type="text" id="reward-name" class="form-input" placeholder="Ej: Tema oscuro para la agenda" required maxlength="100">
+          <p class="form-error" id="reward-name-error" hidden></p>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reward-cost">Costo en tokens <span class="required"></span></label>
+          <input type="number" id="reward-cost" class="form-input" min="1" max="10000" required aria-describedby="help-reward-cost">
+          <p id="help-reward-cost" class="form-help">Cantidad de tokens necesarios para canjear</p>
+          <p class="form-error" id="reward-cost-error" hidden></p>
+        </div>
+        <div class="form-group">
+          <label class="form-check">
+            <input type="checkbox" id="reward-active" class="form-check-input" checked>
+            <span class="form-check-label">Activa (visible para estudiantes)</span>
+          </label>
+        </div>
+      </form>
+      <footer class="modal__footer">
+        <button type="button" class="btn btn--secondary" data-close-modal>Cancelar</button>
+        <button type="submit" form="reward-form" class="btn btn--primary" id="reward-submit">Crear</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Confirm Modal (Generic) -->
+  <div id="confirm-modal" class="modal-backdrop" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+    <div class="modal" style="max-width: 400px;">
+      <header class="modal__header">
+        <h2 id="confirm-modal-title" class="modal__title">Confirmar acción</h2>
+        <button class="modal__close" aria-label="Cerrar" data-close-modal>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </header>
+      <div class="modal__body">
+        <p id="confirm-modal-message" style="color: var(--color-text-secondary);"></p>
+      </div>
+      <footer class="modal__footer">
+        <button type="button" class="btn btn--secondary" data-close-modal>Cancelar</button>
+        <button type="button" class="btn btn--danger" id="confirm-modal-confirm">Confirmar</button>
+      </footer>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>

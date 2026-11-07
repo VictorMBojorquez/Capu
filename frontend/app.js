@@ -187,15 +187,37 @@ const pages = {
   tokens: { init: loadTokens, cleanup: () => {} },
   resumen: { init: loadResumen, cleanup: () => {} },
   perfil: { init: loadPerfil, cleanup: () => {} },
+  calendario: { init: loadCalendario, cleanup: () => {} },
+  notificaciones: { init: loadNotificaciones, cleanup: () => {} },
   'admin-usuarios': { init: loadAdminUsuarios, cleanup: () => {} },
   'admin-cursos': { init: loadAdminCursos, cleanup: () => {} },
   'admin-recompensas': { init: loadAdminRecompensas, cleanup: () => {} },
   'admin-metricas': { init: loadAdminMetricas, cleanup: () => {} },
-  'admin-config': { init: loadAdminConfig, cleanup: () => {} }
+  'admin-config': { init: loadAdminConfig, cleanup: () => {} },
+  'admin-tareas': { init: loadAdminTareas, cleanup: () => {} },
+  'admin-auditoria': { init: loadAdminAuditoria, cleanup: () => {} }
 };
 
 // Public pages that don't require authentication
 const PUBLIC_PAGES = ['register', 'login', 'forgot-password', 'reset-password'];
+
+/**
+ * Validate the current JWT token by calling /api/usuario/perfil
+ * Returns user object if valid, null if invalid/expired
+ */
+async function validateToken() {
+  const token = getAuthToken();
+  if (!token) return null;
+
+  try {
+    const perfil = await GET('/api/usuario/perfil');
+    return { ...perfil, googleConnected: perfil.googleConectado || false };
+  } catch (e) {
+    // Token invalid or expired
+    clearAuth();
+    return null;
+  }
+}
 
 async function navigate(pageName, pushState = true) {
   if (!pages[pageName]) return;
@@ -254,7 +276,7 @@ async function navigate(pageName, pushState = true) {
 }
 
 function handleHashChange() {
-  const hash = location.hash.slice(1) || 'agenda';
+  const hash = location.hash.slice(1) || 'login';
   if (pages[hash]) navigate(hash, false);
 }
 
@@ -301,6 +323,14 @@ function updateNavigationVisibility(isAuthenticated) {
             <a href="#resumen" class="sidebar__item" data-page="resumen" aria-current="false">
               <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
               <span class="sidebar__label">Resumen</span>
+            </a>
+            <a href="#calendario" class="sidebar__item" data-page="calendario" aria-current="false">
+              <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
+              <span class="sidebar__label">Calendario</span>
+            </a>
+            <a href="#notificaciones" class="sidebar__item" data-page="notificaciones" aria-current="false">
+              <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              <span class="sidebar__label">Notificaciones</span>
             </a>
           </div>
           <div class="sidebar__section">
@@ -1873,6 +1903,796 @@ $('#btn-test-oauth').addEventListener('click', async () => {
   }
 });
 
+/* ---------- PAGE: ADMIN TAREAS ---------- */
+
+let adminTasksState = {
+  currentPage: 1,
+  pageSize: 20,
+  totalItems: 0,
+  filters: {
+    usuario: '',
+    curso: '',
+    estado: '',
+    fechaDesde: '',
+    fechaHasta: ''
+  }
+};
+
+async function loadAdminTareas() {
+  // Load filter options (usuarios, cursos)
+  await loadAdminTaskFilters();
+
+  // Attach event listeners
+  attachAdminTaskListeners();
+
+  // Load first page
+  await loadAdminTasksPage(1);
+}
+
+async function loadAdminTaskFilters() {
+  try {
+    // Load usuarios for filter
+    const usuarios = await GET('/api/admin/usuarios');
+    const usuarioSelect = $('#admin-task-filter-usuario');
+    const usuarioModalSelect = $('#admin-task-usuario');
+    if (usuarioSelect) {
+      usuarioSelect.innerHTML = '<option value="">Todos los usuarios</option>' +
+        usuarios.map(u => `<option value="${u.id_usuario}">${esc(u.nombre)} (${esc(u.correo)})</option>`).join('');
+    }
+    if (usuarioModalSelect) {
+      usuarioModalSelect.innerHTML = '<option value="">Seleccionar usuario</option>' +
+        usuarios.map(u => `<option value="${u.id_usuario}">${esc(u.nombre)} (${esc(u.correo)})</option>`).join('');
+    }
+
+    // Load cursos for filter
+    const cursos = await GET('/api/admin/cursos');
+    const cursoSelect = $('#admin-task-filter-curso');
+    if (cursoSelect) {
+      cursoSelect.innerHTML = '<option value="">Todos los cursos</option>' +
+        cursos.map(c => `<option value="${c.id_curso}">${esc(c.nombre)}</option>`).join('');
+    }
+  } catch (e) {
+    console.error('Error loading admin task filters:', e);
+  }
+}
+
+function attachAdminTaskListeners() {
+  // Filter form
+  const filterUsuario = $('#admin-task-filter-usuario');
+  const filterCurso = $('#admin-task-filter-curso');
+  const filterEstado = $('#admin-task-filter-estado');
+  const filterDesde = $('#admin-task-filter-desde');
+  const filterHasta = $('#admin-task-filter-hasta');
+  const btnClear = $('#btn-admin-task-filter-clear');
+
+  [filterUsuario, filterCurso, filterEstado, filterDesde, filterHasta].forEach(el => {
+    if (el) {
+      el.replaceWith(el.cloneNode(true));
+    }
+  });
+
+  // Re-get elements after cloning
+  const newFilterUsuario = $('#admin-task-filter-usuario');
+  const newFilterCurso = $('#admin-task-filter-curso');
+  const newFilterEstado = $('#admin-task-filter-estado');
+  const newFilterDesde = $('#admin-task-filter-desde');
+  const newFilterHasta = $('#admin-task-filter-hasta');
+  const newBtnClear = $('#btn-admin-task-filter-clear');
+
+  [newFilterUsuario, newFilterCurso, newFilterEstado, newFilterDesde, newFilterHasta].forEach(el => {
+    if (el) {
+      el.addEventListener('change', () => {
+        adminTasksState.filters.usuario = newFilterUsuario.value;
+        adminTasksState.filters.curso = newFilterCurso.value;
+        adminTasksState.filters.estado = newFilterEstado.value;
+        adminTasksState.filters.fechaDesde = newFilterDesde.value;
+        adminTasksState.filters.fechaHasta = newFilterHasta.value;
+        adminTasksState.currentPage = 1;
+        loadAdminTasksPage(1);
+      });
+    }
+  });
+
+  if (newBtnClear) {
+    newBtnClear.replaceWith(newBtnClear.cloneNode(true));
+    $('#btn-admin-task-filter-clear').addEventListener('click', () => {
+      adminTasksState.filters = {
+        usuario: '', curso: '', estado: '', fechaDesde: '', fechaHasta: ''
+      };
+      adminTasksState.currentPage = 1;
+      if (newFilterUsuario) newFilterUsuario.value = '';
+      if (newFilterCurso) newFilterCurso.value = '';
+      if (newFilterEstado) newFilterEstado.value = '';
+      if (newFilterDesde) newFilterDesde.value = '';
+      if (newFilterHasta) newFilterHasta.value = '';
+      loadAdminTasksPage(1);
+    });
+  }
+
+  // Create task button
+  const btnCreate = $('#btn-admin-task-create');
+  if (btnCreate) {
+    btnCreate.replaceWith(btnCreate.cloneNode(true));
+    $('#btn-admin-task-create').addEventListener('click', () => openAdminTaskModal());
+  }
+
+  // Pagination
+  const btnPrev = $('#admin-tasks-btn-prev');
+  const btnNext = $('#admin-tasks-btn-next');
+
+  if (btnPrev) {
+    btnPrev.replaceWith(btnPrev.cloneNode(true));
+    $('#admin-tasks-btn-prev').addEventListener('click', () => {
+      if (adminTasksState.currentPage > 1) {
+        loadAdminTasksPage(adminTasksState.currentPage - 1);
+      }
+    });
+  }
+  if (btnNext) {
+    btnNext.replaceWith(btnNext.cloneNode(true));
+    $('#admin-tasks-btn-next').addEventListener('click', () => {
+      const totalPages = Math.ceil(adminTasksState.totalItems / adminTasksState.pageSize);
+      if (adminTasksState.currentPage < totalPages) {
+        loadAdminTasksPage(adminTasksState.currentPage + 1);
+      }
+    });
+  }
+
+  // Admin task modal form
+  const modal = $('#admin-task-modal');
+  const form = $('#admin-task-form');
+  const usuarioSelect = $('#admin-task-usuario');
+  const cursoSelect = $('#admin-task-curso');
+
+  if (usuarioSelect) {
+    usuarioSelect.addEventListener('change', async () => {
+      const userId = usuarioSelect.value;
+      if (userId) {
+        // Load cursos for this user
+        try {
+          const cursos = await GET(`/api/admin/cursos`);
+          const userCursos = cursos.filter(c => c.id_usuario == userId);
+          cursoSelect.innerHTML = '<option value="">Seleccionar curso</option>' +
+            userCursos.map(c => `<option value="${c.id_curso}">${esc(c.nombre)}</option>`).join('');
+          cursoSelect.disabled = false;
+        } catch (e) {
+          cursoSelect.innerHTML = '<option value="">Error al cargar cursos</option>';
+          cursoSelect.disabled = true;
+        }
+      } else {
+        cursoSelect.innerHTML = '<option value="">Primero selecciona un usuario</option>';
+        cursoSelect.disabled = true;
+      }
+    });
+  }
+
+  if (form) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await saveAdminTask();
+    });
+  }
+
+  // Close modal handlers
+  modal?.querySelectorAll('[data-close-modal]').forEach(btn => {
+    btn.replaceWith(btn.cloneNode(true));
+    btn.addEventListener('click', closeAdminTaskModal);
+  });
+}
+
+async function loadAdminTasksPage(page) {
+  adminTasksState.currentPage = page;
+
+  const { usuario, curso, estado, fechaDesde, fechaHasta } = adminTasksState.filters;
+
+  try {
+    const params = new URLSearchParams({
+      limit: String(adminTasksState.pageSize),
+      offset: String((page - 1) * adminTasksState.pageSize)
+    });
+    if (usuario) params.append('usuario', usuario);
+    if (curso) params.append('curso', curso);
+    if (estado) params.append('estado', estado);
+    if (fechaDesde) params.append('fechaDesde', fechaDesde);
+    if (fechaHasta) params.append('fechaHasta', fechaHasta);
+
+    const res = await GET(`/api/admin/tareas?${params.toString()}`);
+    adminTasksState.totalItems = res.total;
+    renderAdminTasksTable(res.items);
+    renderAdminTasksPagination();
+  } catch (e) {
+    showToast(e.message, 'error', 'Error al cargar tareas');
+    const tbody = $('#admin-tasks-tbody');
+    const empty = $('#admin-tasks-empty');
+    const table = $('#admin-tasks-table-container');
+    if (tbody) tbody.innerHTML = '';
+    if (table) table.hidden = true;
+    if (empty) empty.hidden = false;
+  }
+}
+
+function renderAdminTasksTable(tasks) {
+  const tbody = $('#admin-tasks-tbody');
+  const empty = $('#admin-tasks-empty');
+  const table = $('#admin-tasks-table-container');
+
+  if (!tasks.length) {
+    if (tbody) tbody.innerHTML = '';
+    if (table) table.hidden = true;
+    if (empty) empty.hidden = false;
+    return;
+  }
+
+  if (table) table.hidden = false;
+  if (empty) empty.hidden = true;
+
+  const estadoLabels = {
+    pendiente: 'Pendiente',
+    en_progreso: 'En progreso',
+    vencida: 'Vencida',
+    entregada: 'Entregada'
+  };
+
+  const estadoClasses = {
+    pendiente: 'badge--pending',
+    en_progreso: 'badge--in-progress',
+    vencida: 'badge--overdue',
+    entregada: 'badge--done'
+  };
+
+  const sourceLabels = {
+    classroom: 'Classroom',
+    custom: 'Personalizada',
+    admin: 'Admin'
+  };
+
+  tbody.innerHTML = tasks.map(task => `
+    <tr data-task-id="${task.id_tarea}">
+      <td>
+        <div style="font-weight: 500;">${esc(task.titulo)}</div>
+        ${task.descripcion ? `<div style="font-size: var(--text-sm); color: var(--color-text-secondary); margin-top: 2px;">${esc(task.descripcion.slice(0, 100))}${task.descripcion.length > 100 ? '...' : ''}</div>` : ''}
+      </td>
+      <td>${esc(task.usuario_nombre || 'N/A')}<br><small style="color: var(--color-text-secondary);">${esc(task.usuario_correo || '')}</small></td>
+      <td>${esc(task.curso_nombre || 'N/A')}</td>
+      <td><span class="badge ${estadoClasses[task.estado] || ''}">${estadoLabels[task.estado] || task.estado}</span></td>
+      <td>${task.fecha_limite ? fmtDateTime.format(new Date(task.fecha_limite)) : 'Sin fecha'}</td>
+      <td><span class="badge badge--${task.source || 'custom'}">${sourceLabels[task.source] || task.source}</span></td>
+      <td>
+        <div class="task-actions">
+          <button class="btn btn--ghost btn--sm btn-edit-task" data-task-id="${task.id_tarea}" aria-label="Editar tarea">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="btn btn--ghost btn--sm btn-delete-task" data-task-id="${task.id_tarea}" aria-label="Eliminar tarea">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+
+  // Attach click listeners for edit/delete
+  tbody.querySelectorAll('.btn-edit-task').forEach(btn => {
+    btn.addEventListener('click', () => openAdminTaskModal(btn.dataset.taskId));
+  });
+
+  tbody.querySelectorAll('.btn-delete-task').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const taskId = btn.dataset.taskId;
+      if (confirm('¿Estás seguro de que quieres eliminar esta tarea?')) {
+        try {
+          await DELETE(`/api/admin/tareas/${taskId}`);
+          showToast('Tarea eliminada', 'success');
+          loadAdminTasksPage(adminTasksState.currentPage);
+        } catch (e) {
+          showToast(e.message, 'error', 'Error al eliminar tarea');
+        }
+      }
+    });
+  });
+}
+
+function renderAdminTasksPagination() {
+  const pagination = $('#admin-tasks-pagination');
+  const btnPrev = $('#admin-tasks-btn-prev');
+  const btnNext = $('#admin-tasks-btn-next');
+  const info = $('#admin-tasks-pagination-info');
+
+  const totalPages = Math.ceil(adminTasksState.totalItems / adminTasksState.pageSize);
+
+  if (totalPages <= 1) {
+    if (pagination) pagination.hidden = true;
+    return;
+  }
+
+  if (pagination) pagination.hidden = false;
+  if (btnPrev) btnPrev.disabled = adminTasksState.currentPage <= 1;
+  if (btnNext) btnNext.disabled = adminTasksState.currentPage >= totalPages;
+  if (info) info.textContent = `Página ${adminTasksState.currentPage} de ${totalPages}`;
+}
+
+function openAdminTaskModal(taskId = null) {
+  const modal = $('#admin-task-modal');
+  const title = $('#admin-task-modal-title');
+  const form = $('#admin-task-form');
+  const submitBtn = $('#admin-task-submit');
+  const taskIdInput = $('#admin-task-id');
+  const usuarioInput = $('#admin-task-usuario');
+  const cursoInput = $('#admin-task-curso');
+  const tituloInput = $('#admin-task-titulo');
+  const descripcionInput = $('#admin-task-descripcion');
+  const fechaLimiteInput = $('#admin-task-fecha-limite');
+  const estadoInput = $('#admin-task-estado');
+  const avanceInput = $('#admin-task-avance');
+
+  if (!modal || !form) return;
+
+  form.reset();
+  taskIdInput.value = taskId || '';
+
+  if (taskId) {
+    title.textContent = 'Editar tarea';
+    submitBtn.querySelector('.btn__text').textContent = 'Guardar cambios';
+    loadAdminTaskForEdit(taskId);
+  } else {
+    title.textContent = 'Nueva tarea';
+    submitBtn.querySelector('.btn__text').textContent = 'Crear tarea';
+    // Set default date to tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(23, 59, 0, 0);
+    fechaLimiteInput.value = tomorrow.toISOString().slice(0, 16);
+  }
+
+  modal.setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+}
+
+async function loadAdminTaskForEdit(taskId) {
+  try {
+    const task = await GET(`/api/admin/tareas/${taskId}`);
+    if (!task) return;
+
+    $('#admin-task-id').value = task.id_tarea;
+    $('#admin-task-titulo').value = task.titulo || '';
+    $('#admin-task-descripcion').value = task.descripcion || '';
+    $('#admin-task-fecha-limite').value = task.fecha_limite ? new Date(task.fecha_limite).toISOString().slice(0, 16) : '';
+    $('#admin-task-estado').value = task.estado || 'pendiente';
+    $('#admin-task-avance').value = task.avance_pct || 0;
+
+    // Set usuario and load cursos
+    if (task.id_usuario) {
+      $('#admin-task-usuario').value = task.id_usuario;
+      // Trigger change to load cursos
+      const event = new Event('change');
+      $('#admin-task-usuario').dispatchEvent(event);
+      // Wait a bit for cursos to load
+      setTimeout(() => {
+        if (task.id_curso) {
+          $('#admin-task-curso').value = task.id_curso;
+        }
+      }, 100);
+    }
+  } catch (e) {
+    showToast(e.message, 'error', 'Error al cargar tarea');
+  }
+}
+
+async function saveAdminTask() {
+  const taskId = $('#admin-task-id').value;
+  const data = {
+    id_usuario: Number($('#admin-task-usuario').value),
+    id_curso: Number($('#admin-task-curso').value),
+    titulo: $('#admin-task-titulo').value.trim(),
+    descripcion: $('#admin-task-descripcion').value.trim() || null,
+    fecha_limite: $('#admin-task-fecha-limite').value,
+    estado: $('#admin-task-estado').value,
+    avance_pct: Number($('#admin-task-avance').value) || 0
+  };
+
+  if (!data.id_usuario || !data.id_curso || !data.titulo || !data.fecha_limite) {
+    showToast('Completa todos los campos obligatorios', 'error');
+    return;
+  }
+
+  const submitBtn = $('#admin-task-submit');
+  submitBtn.disabled = true;
+  submitBtn.querySelector('.btn__loading').hidden = false;
+  submitBtn.querySelector('.btn__text').hidden = true;
+
+  try {
+    if (taskId) {
+      await PATCH(`/api/admin/tareas/${taskId}`, data);
+      showToast('Tarea actualizada', 'success');
+    } else {
+      await POST('/api/admin/tareas', data);
+      showToast('Tarea creada', 'success');
+    }
+    closeAdminTaskModal();
+    loadAdminTasksPage(adminTasksState.currentPage);
+  } catch (e) {
+    showToast(e.message, 'error', taskId ? 'Error al actualizar tarea' : 'Error al crear tarea');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.querySelector('.btn__loading').hidden = true;
+    submitBtn.querySelector('.btn__text').hidden = false;
+  }
+}
+
+function closeAdminTaskModal() {
+  const modal = $('#admin-task-modal');
+  if (modal) {
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+}
+
+/* ---------- PAGE: ADMIN AUDITORÍA ---------- */
+
+let adminAuditState = {
+  currentPage: 1,
+  pageSize: 20,
+  totalItems: 0,
+  filters: {
+    usuario: '',
+    accion: '',
+    entidad: '',
+    fechaDesde: '',
+    fechaHasta: ''
+  }
+};
+
+async function loadAdminAuditoria() {
+  // Load filter options (usuarios, acciones, entidades)
+  await loadAdminAuditFilters();
+
+  // Attach event listeners
+  attachAdminAuditListeners();
+
+  // Load first page
+  await loadAdminAuditPage(1);
+}
+
+async function loadAdminAuditFilters() {
+  try {
+    // Load usuarios for filter
+    const usuarios = await GET('/api/admin/usuarios');
+    const usuarioSelect = $('#audit-filter-usuario');
+    if (usuarioSelect) {
+      usuarioSelect.innerHTML = '<option value="">Todos los usuarios</option>' +
+        usuarios.map(u => `<option value="${u.id_usuario}">${esc(u.nombre)} (${esc(u.correo)})</option>`).join('');
+    }
+
+    // Load acciones for filter
+    const acciones = await GET('/api/admin/auditoria/acciones');
+    const accionSelect = $('#audit-filter-accion');
+    if (accionSelect) {
+      accionSelect.innerHTML = '<option value="">Todas las acciones</option>' +
+        acciones.map(a => `<option value="${a}">${a}</option>`).join('');
+    }
+
+    // Load entidades for filter
+    const entidades = await GET('/api/admin/auditoria/entidades');
+    const entidadSelect = $('#audit-filter-entidad');
+    if (entidadSelect) {
+      entidadSelect.innerHTML = '<option value="">Todas las entidades</option>' +
+        entidades.map(e => `<option value="${e}">${e}</option>`).join('');
+    }
+  } catch (e) {
+    console.error('Error loading admin audit filters:', e);
+  }
+}
+
+function attachAdminAuditListeners() {
+  // Filter elements
+  const filterUsuario = $('#audit-filter-usuario');
+  const filterAccion = $('#audit-filter-accion');
+  const filterEntidad = $('#audit-filter-entidad');
+  const filterDesde = $('#audit-filter-desde');
+  const filterHasta = $('#audit-filter-hasta');
+  const btnClear = $('#btn-audit-filter-clear');
+
+  [filterUsuario, filterAccion, filterEntidad, filterDesde, filterHasta].forEach(el => {
+    if (el) {
+      el.replaceWith(el.cloneNode(true));
+    }
+  });
+
+  // Re-get elements after cloning
+  const newFilterUsuario = $('#audit-filter-usuario');
+  const newFilterAccion = $('#audit-filter-accion');
+  const newFilterEntidad = $('#audit-filter-entidad');
+  const newFilterDesde = $('#audit-filter-desde');
+  const newFilterHasta = $('#audit-filter-hasta');
+  const newBtnClear = $('#btn-audit-filter-clear');
+
+  [newFilterUsuario, newFilterAccion, newFilterEntidad, newFilterDesde, newFilterHasta].forEach(el => {
+    if (el) {
+      el.addEventListener('change', () => {
+        adminAuditState.filters.usuario = newFilterUsuario.value;
+        adminAuditState.filters.accion = newFilterAccion.value;
+        adminAuditState.filters.entidad = newFilterEntidad.value;
+        adminAuditState.filters.fechaDesde = newFilterDesde.value;
+        adminAuditState.filters.fechaHasta = newFilterHasta.value;
+        adminAuditState.currentPage = 1;
+        loadAdminAuditPage(1);
+      });
+    }
+  });
+
+  if (newBtnClear) {
+    newBtnClear.replaceWith(newBtnClear.cloneNode(true));
+    $('#btn-audit-filter-clear').addEventListener('click', () => {
+      adminAuditState.filters = {
+        usuario: '', accion: '', entidad: '', fechaDesde: '', fechaHasta: ''
+      };
+      adminAuditState.currentPage = 1;
+      if (newFilterUsuario) newFilterUsuario.value = '';
+      if (newFilterAccion) newFilterAccion.value = '';
+      if (newFilterEntidad) newFilterEntidad.value = '';
+      if (newFilterDesde) newFilterDesde.value = '';
+      if (newFilterHasta) newFilterHasta.value = '';
+      loadAdminAuditPage(1);
+    });
+  }
+
+  // Export button
+  const btnExport = $('#btn-export-auditoria');
+  if (btnExport) {
+    btnExport.replaceWith(btnExport.cloneNode(true));
+    $('#btn-export-auditoria').addEventListener('click', exportAuditCSV);
+  }
+
+  // Pagination
+  const btnPrev = $('#audit-btn-prev');
+  const btnNext = $('#audit-btn-next');
+
+  if (btnPrev) {
+    btnPrev.replaceWith(btnPrev.cloneNode(true));
+    $('#audit-btn-prev').addEventListener('click', () => {
+      if (adminAuditState.currentPage > 1) {
+        loadAdminAuditPage(adminAuditState.currentPage - 1);
+      }
+    });
+  }
+  if (btnNext) {
+    btnNext.replaceWith(btnNext.cloneNode(true));
+    $('#audit-btn-next').addEventListener('click', () => {
+      const totalPages = Math.ceil(adminAuditState.totalItems / adminAuditState.pageSize);
+      if (adminAuditState.currentPage < totalPages) {
+        loadAdminAuditPage(adminAuditState.currentPage + 1);
+      }
+    });
+  }
+
+  // Close modal handlers
+  const modal = $('#audit-detail-modal');
+  modal?.querySelectorAll('[data-close-modal]').forEach(btn => {
+    btn.replaceWith(btn.cloneNode(true));
+    btn.addEventListener('click', closeAuditDetailModal);
+  });
+}
+
+async function loadAdminAuditPage(page) {
+  adminAuditState.currentPage = page;
+
+  const { usuario, accion, entidad, fechaDesde, fechaHasta } = adminAuditState.filters;
+
+  try {
+    const params = new URLSearchParams({
+      limit: String(adminAuditState.pageSize),
+      offset: String((page - 1) * adminAuditState.pageSize)
+    });
+    if (usuario) params.append('usuario', usuario);
+    if (accion) params.append('accion', accion);
+    if (entidad) params.append('entidad', entidad);
+    if (fechaDesde) params.append('fechaDesde', fechaDesde);
+    if (fechaHasta) params.append('fechaHasta', fechaHasta);
+
+    const res = await GET(`/api/admin/auditoria?${params.toString()}`);
+    adminAuditState.totalItems = res.total;
+    renderAdminAuditTable(res.items);
+    renderAdminAuditPagination();
+  } catch (e) {
+    showToast(e.message, 'error', 'Error al cargar auditoría');
+    const tbody = $('#audit-tbody');
+    const empty = $('#audit-empty');
+    const table = $('#audit-table-container');
+    if (tbody) tbody.innerHTML = '';
+    if (table) table.hidden = true;
+    if (empty) empty.hidden = false;
+  }
+}
+
+function renderAdminAuditTable(logs) {
+  const tbody = $('#audit-tbody');
+  const empty = $('#audit-empty');
+  const table = $('#audit-table-container');
+
+  if (!logs.length) {
+    if (tbody) tbody.innerHTML = '';
+    if (table) table.hidden = true;
+    if (empty) empty.hidden = false;
+    return;
+  }
+
+  if (table) table.hidden = false;
+  if (empty) empty.hidden = true;
+
+  tbody.innerHTML = logs.map(log => `
+    <tr data-audit-id="${log.id_auditoria}" style="cursor: pointer;">
+      <td>${log.fecha ? fmtDateTime.format(new Date(log.fecha)) : ''}</td>
+      <td>${esc(log.usuario_nombre || 'Sistema')}<br><small style="color: var(--color-text-secondary);">${esc(log.usuario_correo || '')}</small></td>
+      <td><span class="badge badge--${log.accion?.replace(/_/g, '-') || 'custom'}">${esc(log.accion)}</span></td>
+      <td>${esc(log.entidad || 'N/A')}${log.entidad_id ? ` #${log.entidad_id}` : ''}</td>
+      <td>${esc(log.ip || 'N/A')}</td>
+      <td>
+        <button class="btn btn--ghost btn--sm btn-view-audit" data-audit-id="${log.id_auditoria}" aria-label="Ver detalles">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </td>
+    </tr>
+  `).join('');
+
+  // Attach click listeners for view detail
+  tbody.querySelectorAll('.btn-view-audit').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openAuditDetailModal(btn.dataset.auditId);
+    });
+  });
+
+  // Also make rows clickable
+  tbody.querySelectorAll('tr[data-audit-id]').forEach(row => {
+    row.addEventListener('click', () => {
+      openAuditDetailModal(row.dataset.auditId);
+    });
+  });
+}
+
+function renderAdminAuditPagination() {
+  const pagination = $('#audit-pagination');
+  const btnPrev = $('#audit-btn-prev');
+  const btnNext = $('#audit-btn-next');
+  const info = $('#audit-pagination-info');
+
+  const totalPages = Math.ceil(adminAuditState.totalItems / adminAuditState.pageSize);
+
+  if (totalPages <= 1) {
+    if (pagination) pagination.hidden = true;
+    return;
+  }
+
+  if (pagination) pagination.hidden = false;
+  if (btnPrev) btnPrev.disabled = adminAuditState.currentPage <= 1;
+  if (btnNext) btnNext.disabled = adminAuditState.currentPage >= totalPages;
+  if (info) info.textContent = `Página ${adminAuditState.currentPage} de ${totalPages}`;
+}
+
+function openAuditDetailModal(auditId) {
+  const modal = $('#audit-detail-modal');
+  const body = $('#audit-detail-body');
+  const title = $('#audit-detail-modal-title');
+
+  if (!modal || !body) return;
+
+  // Find the log data
+  // We'll fetch it or use cached data - for now, fetch
+  GET(`/api/admin/auditoria?limit=1&offset=0`).then(res => {
+    const log = res.items.find(l => l.id_auditoria == auditId);
+    if (!log) return;
+
+    title.textContent = `Auditoría: ${esc(log.accion)}`;
+
+    const formatJson = (obj) => {
+      if (!obj) return '<em>Sin datos</em>';
+      return '<pre style="background: var(--color-bg-secondary); padding: var(--space-3); border-radius: var(--radius-md); overflow-x: auto; font-size: var(--text-sm);">' + esc(JSON.stringify(obj, null, 2)) + '</pre>';
+    };
+
+    body.innerHTML = `
+      <div style="display: flex; flex-direction: column; gap: var(--space-4);">
+        <div class="detail-row">
+          <span class="detail-label">Fecha</span>
+          <span class="detail-value">${log.fecha ? fmtDateTime.format(new Date(log.fecha)) : 'N/A'}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Usuario</span>
+          <span class="detail-value">${esc(log.usuario_nombre || 'Sistema')} ${log.usuario_correo ? `(${esc(log.usuario_correo)})` : ''}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Acción</span>
+          <span class="detail-value"><span class="badge badge--${log.accion?.replace(/_/g, '-') || 'custom'}">${esc(log.accion)}</span></span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Entidad</span>
+          <span class="detail-value">${esc(log.entidad || 'N/A')}${log.entidad_id ? ` #${log.entidad_id}` : ''}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">IP</span>
+          <span class="detail-value">${esc(log.ip || 'N/A')}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">User Agent</span>
+          <span class="detail-value" style="font-size: var(--text-xs); word-break: break-all;">${esc(log.user_agent || 'N/A')}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Datos anteriores</span>
+          <span class="detail-value">${formatJson(log.datos_anteriores)}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Datos nuevos</span>
+          <span class="detail-value">${formatJson(log.datos_nuevos)}</span>
+        </div>
+      </div>
+    `;
+
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }).catch(e => {
+    showToast(e.message, 'error', 'Error al cargar detalle');
+  });
+}
+
+function closeAuditDetailModal() {
+  const modal = $('#audit-detail-modal');
+  if (modal) {
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+}
+
+async function exportAuditCSV() {
+  const { usuario, accion, entidad, fechaDesde, fechaHasta } = adminAuditState.filters;
+
+  try {
+    const params = new URLSearchParams();
+    if (usuario) params.append('usuario', usuario);
+    if (accion) params.append('accion', accion);
+    if (entidad) params.append('entidad', entidad);
+    if (fechaDesde) params.append('fechaDesde', fechaDesde);
+    if (fechaHasta) params.append('fechaHasta', fechaHasta);
+    params.append('limit', '10000'); // Large limit for export
+
+    const res = await GET(`/api/admin/auditoria?${params.toString()}`);
+    const logs = res.items;
+
+    if (!logs.length) {
+      showToast('No hay datos para exportar', 'info');
+      return;
+    }
+
+    // Generate CSV
+    const headers = ['Fecha', 'Usuario', 'Email', 'Acción', 'Entidad', 'Entidad ID', 'IP', 'User Agent', 'Datos Anteriores', 'Datos Nuevos'];
+    const rows = logs.map(log => [
+      log.fecha || '',
+      log.usuario_nombre || '',
+      log.usuario_correo || '',
+      log.accion || '',
+      log.entidad || '',
+      log.entidad_id || '',
+      log.ip || '',
+      log.user_agent || '',
+      log.datos_anteriores ? JSON.stringify(log.datos_anteriores).replace(/"/g, '""') : '',
+      log.datos_nuevos ? JSON.stringify(log.datos_nuevos).replace(/"/g, '""') : ''
+    ]);
+
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${cell}"`).join(','))
+      .join('\n');
+
+    // Download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `auditoria-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+
+    showToast('Exportación completada', 'success');
+  } catch (e) {
+    showToast(e.message, 'error', 'Error al exportar');
+  }
+}
+
 /* ---------- PAGE: TOKENS ---------- */
 async function loadTokens() {
   try {
@@ -1998,6 +2818,748 @@ function renderHeatmap(m) {
   heatmap.innerHTML = cells.join('');
 }
 
+/* ============================================================
+   PAGE: CALENDARIO
+   ============================================================ */
+
+let calendarState = {
+  currentDate: new Date(),
+  view: 'month', // 'month' or 'week'
+  tasksByDate: {}
+};
+
+async function loadCalendario() {
+  // Initialize calendar state
+  calendarState.currentDate = new Date();
+  calendarState.view = 'month';
+
+  await renderCalendar();
+  attachCalendarListeners();
+}
+
+function attachCalendarListeners() {
+  // View toggle buttons
+  const btnMonth = $('#cal-view-month');
+  const btnWeek = $('#cal-view-week');
+
+  if (btnMonth) {
+    btnMonth.replaceWith(btnMonth.cloneNode(true));
+    $('#cal-view-month').addEventListener('click', () => {
+      calendarState.view = 'month';
+      updateViewToggle();
+      renderCalendar();
+    });
+  }
+
+  if (btnWeek) {
+    btnWeek.replaceWith(btnWeek.cloneNode(true));
+    $('#cal-view-week').addEventListener('click', () => {
+      calendarState.view = 'week';
+      updateViewToggle();
+      renderCalendar();
+    });
+  }
+
+  // Navigation buttons
+  const btnPrev = $('#cal-prev');
+  const btnNext = $('#cal-next');
+  const btnToday = $('#cal-today');
+
+  if (btnPrev) {
+    btnPrev.replaceWith(btnPrev.cloneNode(true));
+    $('#cal-prev').addEventListener('click', () => navigateCalendar(-1));
+  }
+
+  if (btnNext) {
+    btnNext.replaceWith(btnNext.cloneNode(true));
+    $('#cal-next').addEventListener('click', () => navigateCalendar(1));
+  }
+
+  if (btnToday) {
+    btnToday.replaceWith(btnToday.cloneNode(true));
+    $('#cal-today').addEventListener('click', () => {
+      calendarState.currentDate = new Date();
+      updateCalendarHeader();
+      renderCalendar();
+    });
+  }
+
+  // Close day detail modal when clicking backdrop
+  const dayDetailModal = $('#cal-day-modal');
+  if (dayDetailModal) {
+    dayDetailModal.addEventListener('click', (e) => {
+      if (e.target === dayDetailModal) {
+        closeDayDetailModal();
+      }
+    });
+  }
+}
+
+function updateViewToggle() {
+  const btnMonth = $('#cal-view-month');
+  const btnWeek = $('#cal-view-week');
+
+  if (btnMonth) {
+    btnMonth.setAttribute('aria-pressed', calendarState.view === 'month');
+  }
+  if (btnWeek) {
+    btnWeek.setAttribute('aria-pressed', calendarState.view === 'week');
+  }
+}
+
+function navigateCalendar(direction) {
+  if (calendarState.view === 'month') {
+    calendarState.currentDate.setMonth(calendarState.currentDate.getMonth() + direction);
+  } else {
+    calendarState.currentDate.setDate(calendarState.currentDate.getDate() + direction * 7);
+  }
+  updateCalendarHeader();
+  renderCalendar();
+}
+
+function updateCalendarHeader() {
+  const header = $('#cal-current-period');
+  if (!header) return;
+
+  if (calendarState.view === 'month') {
+    const fmt = new Intl.DateTimeFormat('es-MX', { month: 'long', year: 'numeric' });
+    header.textContent = fmt.format(calendarState.currentDate);
+  } else {
+    // Week view - show week range
+    const startOfWeek = getStartOfWeek(calendarState.currentDate);
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(endOfWeek.getDate() + 6);
+
+    const fmt = new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short' });
+    const startStr = fmt.format(startOfWeek);
+    const endStr = fmt.format(endOfWeek);
+
+    const yearFmt = new Intl.DateTimeFormat('es-MX', { year: 'numeric' });
+    header.textContent = `${startStr} - ${endStr} ${yearFmt.format(startOfWeek)}`;
+  }
+}
+
+function getStartOfWeek(date) {
+  const d = new Date(date);
+  const day = d.getDay(); // 0 = Sunday, 1 = Monday, etc.
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Monday start
+  d.setDate(diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+async function renderCalendar() {
+  // Show loading
+  const container = $('#calendar-container');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="calendar-loading" style="display:flex;align-items:center;justify-content:center;padding:var(--space-8);">
+      <div class="spinner" style="width:32px;height:32px;border:3px solid var(--color-border);border-top-color:var(--color-primary);border-radius:50%;animation:spin 1s linear infinite;"></div>
+    </div>
+  `;
+
+  try {
+    // Fetch tasks for current month
+    const year = calendarState.currentDate.getFullYear();
+    const month = String(calendarState.currentDate.getMonth() + 1).padStart(2, '0');
+    const mes = `${year}-${month}`;
+
+    calendarState.tasksByDate = await GET(`/api/tareas/calendario?mes=${mes}`);
+
+    if (calendarState.view === 'month') {
+      renderMonthView();
+    } else {
+      renderWeekView();
+    }
+
+    updateCalendarHeader();
+  } catch (e) {
+    showToast(e.message, 'error', 'Error al cargar calendario');
+    container.innerHTML = `
+      <div class="empty-state" style="padding:var(--space-8);text-align:center;">
+        <div class="empty-state__icon">📅</div>
+        <h3 class="empty-state__title">Error al cargar</h3>
+        <p class="empty-state__message">${esc(e.message)}</p>
+      </div>
+    `;
+  }
+}
+
+function renderMonthView() {
+  const container = $('#calendar-container');
+  if (!container) return;
+
+  const year = calendarState.currentDate.getFullYear();
+  const month = calendarState.currentDate.getMonth();
+
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const startDay = firstDay.getDay(); // 0 = Sunday
+  const daysInMonth = lastDay.getDate();
+
+  // Adjust for Monday start (0 = Monday, 6 = Sunday)
+  const startOffset = startDay === 0 ? 6 : startDay - 1;
+
+  const prevMonthLastDay = new Date(year, month, 0).getDate();
+
+  let html = `
+    <div class="calendar-header" role="row">
+      <div class="calendar-day-header" role="columnheader">Lun</div>
+      <div class="calendar-day-header" role="columnheader">Mar</div>
+      <div class="calendar-day-header" role="columnheader">Mié</div>
+      <div class="calendar-day-header" role="columnheader">Jue</div>
+      <div class="calendar-day-header" role="columnheader">Vie</div>
+      <div class="calendar-day-header" role="columnheader">Sáb</div>
+      <div class="calendar-day-header" role="columnheader">Dom</div>
+    </div>
+    <div class="calendar-grid" role="grid">
+  `;
+
+  let day = 1;
+  let nextMonthDay = 1;
+
+  // Generate 6 weeks (42 days)
+  for (let week = 0; week < 6; week++) {
+    for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
+      const cellIndex = week * 7 + dayOfWeek;
+      let dayNum;
+      let isCurrentMonth = true;
+      let dateStr;
+
+      if (cellIndex < startOffset) {
+        // Previous month days
+        dayNum = prevMonthLastDay - startOffset + cellIndex + 1;
+        isCurrentMonth = false;
+        const prevMonth = month === 0 ? 11 : month - 1;
+        const prevYear = month === 0 ? year - 1 : year;
+        dateStr = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+      } else if (day > daysInMonth) {
+        // Next month days
+        dayNum = nextMonthDay++;
+        isCurrentMonth = false;
+        const nextMonth = month === 11 ? 0 : month + 1;
+        const nextYear = month === 11 ? year + 1 : year;
+        dateStr = `${nextYear}-${String(nextMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+      } else {
+        // Current month days
+        dayNum = day++;
+        dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+      }
+
+      const isToday = isTodayDate(dateStr);
+      const tasks = calendarState.tasksByDate[dateStr] || [];
+      const pendingTasks = tasks.filter(t => t.estado !== 'entregada');
+
+      let classes = 'calendar-day';
+      if (!isCurrentMonth) classes += ' calendar-day--other-month';
+      if (isToday) classes += ' calendar-day--today';
+
+      html += `
+        <div class="${classes}" role="gridcell" tabindex="0" data-date="${dateStr}" data-has-tasks="${tasks.length > 0}">
+          <div class="calendar-day__number">${dayNum}</div>
+          <div class="calendar-day__tasks">
+            ${renderDayTasks(pendingTasks.slice(0, 3))}
+            ${tasks.length > 3 ? `<div class="calendar-day__more" data-date="${dateStr}">+${tasks.length - 3} más</div>` : ''}
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  html += '</div>';
+  container.innerHTML = html;
+
+  // Attach click listeners to days
+  container.querySelectorAll('.calendar-day').forEach(dayEl => {
+    dayEl.addEventListener('click', () => openDayDetail(dayEl.dataset.date));
+    dayEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openDayDetail(dayEl.dataset.date);
+      }
+    });
+  });
+
+  // Attach click listeners to "more" links
+  container.querySelectorAll('.calendar-day__more').forEach(moreEl => {
+    moreEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openDayDetail(moreEl.dataset.date);
+    });
+  });
+}
+
+function renderDayTasks(tasks) {
+  if (!tasks.length) return '';
+
+  return tasks.map(t => {
+    const isCustom = t.source === 'custom';
+    const isEntregada = t.estado === 'entregada';
+    const taskClass = `calendar-day__task calendar-day__task--${isCustom ? 'custom' : 'classroom'} ${isEntregada ? 'calendar-day__task--entregada' : ''}`;
+    const timeStr = t.fecha_limite ? new Date(t.fecha_limite).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '';
+
+    return `
+      <div class="${taskClass}" title="${esc(t.titulo)} ${timeStr}" data-task-id="${t.id_tarea}">
+        ${esc(t.titulo)}
+        ${timeStr ? `<span style="font-size:0.7em;margin-left:4px;">${timeStr}</span>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+function renderWeekView() {
+  const container = $('#calendar-container');
+  if (!container) return;
+
+  const startOfWeek = getStartOfWeek(calendarState.currentDate);
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(endOfWeek.getDate() + 6);
+  endOfWeek.setHours(23, 59, 59, 999);
+
+  // Get all tasks for the week
+  const weekTasks = [];
+  for (const [dateStr, tasks] of Object.entries(calendarState.tasksByDate)) {
+    const taskDate = new Date(dateStr);
+    if (taskDate >= startOfWeek && taskDate <= endOfWeek) {
+      tasks.forEach(t => weekTasks.push({ ...t, date: dateStr }));
+    }
+  }
+
+  // Sort tasks by date and time
+  weekTasks.sort((a, b) => new Date(a.fecha_limite) - new Date(b.fecha_limite));
+
+  const dayHeaders = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
+  let html = `
+    <div class="week-header" role="row">
+      <div class="week-header__time" role="columnheader">Hora</div>
+      ${dayHeaders.map((day, i) => {
+        const date = new Date(startOfWeek);
+        date.setDate(date.getDate() + i);
+        const isToday = isTodayDate(date.toISOString().slice(0, 10));
+        return `<div class="week-header__day ${isToday ? 'week-header__day--today' : ''}" role="columnheader">${day} ${date.getDate()}</div>`;
+      }).join('')}
+    </div>
+    <div class="week-grid" role="grid">
+  `;
+
+  // Time slots (6am to 11pm = 17 hours)
+  for (let hour = 6; hour <= 22; hour++) {
+    const timeStr = `${hour.toString().padStart(2, '0')}:00`;
+    html += `<div class="week-time-slot" role="rowheader">${timeStr}</div>`;
+
+    for (let day = 0; day < 7; day++) {
+      const date = new Date(startOfWeek);
+      date.setDate(date.getDate() + day);
+      const dateStr = date.toISOString().slice(0, 10);
+      const isToday = isTodayDate(dateStr);
+
+      html += `<div class="week-day-column ${isToday ? 'week-day-column--today' : ''}" role="gridcell" data-date="${dateStr}"></div>`;
+    }
+  }
+
+  html += '</div>';
+  container.innerHTML = html;
+
+  // Place tasks in week grid
+  placeTasksInWeekGrid(weekTasks, startOfWeek);
+}
+
+function placeTasksInWeekGrid(tasks, startOfWeek) {
+  tasks.forEach(task => {
+    const taskDate = new Date(task.fecha_limite);
+    const dayIndex = (taskDate.getDay() + 6) % 7; // Monday = 0
+    const hour = taskDate.getHours();
+    const minute = taskDate.getMinutes();
+
+    // Only show tasks between 6am and 10pm
+    if (hour < 6 || hour > 22) return;
+
+    const columnIndex = dayIndex + 1; // +1 for time column
+    const rowIndex = (hour - 6) * 2 + (minute >= 30 ? 1 : 0); // 30-min slots
+
+    const grid = document.querySelector('.week-grid');
+    if (!grid) return;
+
+    const cells = grid.querySelectorAll('.week-day-column');
+    const cellIndex = rowIndex * 7 + dayIndex;
+    const cell = cells[cellIndex];
+
+    if (!cell) return;
+
+    const isCustom = task.source === 'custom';
+    const isEntregada = task.estado === 'entregada';
+    const taskClass = `week-task week-task--${isCustom ? 'custom' : 'classroom'} ${isEntregada ? 'week-task--entregada' : ''}`;
+
+    // Calculate top position within the cell (each cell is 60px = 1 hour)
+    const topPx = (hour - 6) * 60 + (minute / 60) * 60;
+    const heightPx = 50; // Approximate height for 1-hour task
+
+    const taskEl = document.createElement('div');
+    taskEl.className = taskClass;
+    taskEl.style.top = `${topPx}px`;
+    taskEl.style.height = `${heightPx}px`;
+    taskEl.textContent = task.titulo;
+    taskEl.title = `${task.titulo} - ${task.fecha_limite}`;
+    taskEl.dataset.taskId = task.id_tarea;
+    taskEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openTaskDetail(task.id_tarea);
+    });
+
+    cell.appendChild(taskEl);
+  });
+}
+
+function isTodayDate(dateStr) {
+  const today = new Date().toISOString().slice(0, 10);
+  return dateStr === today;
+}
+
+function openDayDetail(dateStr) {
+  const tasks = calendarState.tasksByDate[dateStr] || [];
+  const modal = $('#cal-day-modal');
+  const title = $('#cal-day-modal-title');
+  const list = $('#cal-day-tasks');
+
+  if (!modal || !title || !list) return;
+
+  const fmt = new Intl.DateTimeFormat('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
+  title.textContent = fmt.format(new Date(dateStr + 'T00:00:00'));
+
+  if (!tasks.length) {
+    list.innerHTML = '<div class="empty-state" style="padding:var(--space-4);text-align:center;"><p>No hay tareas para este día</p></div>';
+  } else {
+    list.innerHTML = tasks.map(t => {
+      const isCustom = t.source === 'custom';
+      const isEntregada = t.estado === 'entregada';
+      const taskClass = `cal-day-task cal-day-task--${isCustom ? 'custom' : 'classroom'} ${isEntregada ? 'cal-day-task--entregada' : ''}`;
+      const timeStr = t.fecha_limite ? new Date(t.fecha_limite).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '';
+      const courseColor = courseColor(t.id_curso);
+
+      return `
+        <article class="${taskClass}" data-task-id="${t.id_tarea}" style="border-left-color: ${courseColor};" tabindex="0" role="button">
+          <div class="cal-day-task__title">${esc(t.titulo)}</div>
+          <div class="cal-day-task__meta">
+            <span class="cal-day-task__course" style="color: ${courseColor};">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/></svg>
+              ${esc(t.curso)}
+            </span>
+            ${timeStr ? `<span class="cal-day-task__time">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              ${timeStr}
+            </span>` : ''}
+            <span class="badge badge--${t.estado_visible || t.estado}">${ETIQUETA_ESTADO[t.estado_visible || t.estado]}</span>
+          </div>
+        </article>
+      `;
+    }).join('');
+
+    // Attach click listeners to tasks
+    list.querySelectorAll('.cal-day-task').forEach(taskEl => {
+      taskEl.addEventListener('click', () => {
+        const taskId = taskEl.dataset.taskId;
+        closeDayDetailModal();
+        openTaskDetail(Number(taskId));
+      });
+      taskEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          const taskId = taskEl.dataset.taskId;
+          closeDayDetailModal();
+          openTaskDetail(Number(taskId));
+        }
+      });
+    });
+  }
+
+  modal.setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeDayDetailModal() {
+  const modal = $('#cal-day-modal');
+  if (modal) {
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+}
+
+/* ============================================================
+   PAGE: NOTIFICACIONES
+   ============================================================ */
+
+let notificationState = {
+  currentTab: 'todas',
+  currentPage: 1,
+  pageSize: 20,
+  totalItems: 0,
+  isLoading: false
+};
+
+const NOTIFICATION_TABS = [
+  { id: 'todas', label: 'Todas', type: null, leida: undefined },
+  { id: 'no-leidas', label: 'No leídas', type: null, leida: false },
+  { id: 'entregas', label: 'Entregas', type: 'entrega', leida: undefined },
+  { id: 'recordatorios', label: 'Recordatorios', type: 'recordatorio', leida: undefined }
+];
+
+const NOTIFICATION_ICONS = {
+  entrega: '✅',
+  recordatorio: '⏰',
+  vencida: '⛔',
+  sistema: 'ℹ️',
+  recompensa: '🎁'
+};
+
+const NOTIFICATION_ICON_CLASSES = {
+  entrega: 'notification-item__icon--entrega',
+  recordatorio: 'notification-item__icon--recordatorio',
+  vencida: 'notification-item__icon--vencida',
+  sistema: 'notification-item__icon--sistema',
+  recompensa: 'notification-item__icon--recompensa'
+};
+
+async function loadNotificaciones() {
+  notificationState.currentPage = 1;
+  notificationState.currentTab = 'todas';
+  await loadNotificationsForTab('todas');
+  attachNotificationListeners();
+}
+
+function attachNotificationListeners() {
+  // Tab buttons
+  const tabButtons = document.querySelectorAll('.notification-tab');
+  tabButtons.forEach(btn => {
+    btn.replaceWith(btn.cloneNode(true));
+  });
+
+  document.querySelectorAll('.notification-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tabId = btn.dataset.tab;
+      switchTab(tabId);
+    });
+  });
+
+  // Mark all as read button
+  const btnMarkAllRead = $('#btn-mark-all-read');
+  if (btnMarkAllRead) {
+    btnMarkAllRead.replaceWith(btnMarkAllRead.cloneNode(true));
+    $('#btn-mark-all-read').addEventListener('click', markAllAsRead);
+  }
+
+  // Pagination buttons
+  const btnPrev = $('#notif-btn-prev');
+  const btnNext = $('#notif-btn-next');
+
+  if (btnPrev) {
+    btnPrev.replaceWith(btnPrev.cloneNode(true));
+    $('#notif-btn-prev').addEventListener('click', () => {
+      if (notificationState.currentPage > 1) {
+        notificationState.currentPage--;
+        loadNotificationsForTab(notificationState.currentTab);
+      }
+    });
+  }
+
+  if (btnNext) {
+    btnNext.replaceWith(btnNext.cloneNode(true));
+    $('#notif-btn-next').addEventListener('click', () => {
+      const totalPages = Math.ceil(notificationState.totalItems / notificationState.pageSize);
+      if (notificationState.currentPage < totalPages) {
+        notificationState.currentPage++;
+        loadNotificationsForTab(notificationState.currentTab);
+      }
+    });
+  }
+}
+
+function switchTab(tabId) {
+  // Update tab buttons
+  document.querySelectorAll('.notification-tab').forEach(btn => {
+    const isActive = btn.dataset.tab === tabId;
+    btn.setAttribute('aria-selected', isActive);
+  });
+
+  // Update tab panels
+  document.querySelectorAll('.tab-panel').forEach(panel => {
+    const isActive = panel.id === `panel-${tabId}`;
+    panel.hidden = !isActive;
+  });
+
+  // Load notifications for the new tab
+  notificationState.currentTab = tabId;
+  notificationState.currentPage = 1;
+  loadNotificationsForTab(tabId);
+}
+
+async function loadNotificationsForTab(tabId) {
+  if (notificationState.isLoading) return;
+
+  const tabConfig = NOTIFICATION_TABS.find(t => t.id === tabId);
+  if (!tabConfig) return;
+
+  notificationState.isLoading = true;
+
+  // Show loading state
+  const listEl = $(`#notif-list-${tabId}`);
+  const emptyEl = $(`#empty-notif-${tabId}`);
+  if (listEl) {
+    listEl.innerHTML = `
+      <div class="calendar-loading" style="display:flex;align-items:center;justify-content:center;padding:var(--space-8);">
+        <div class="spinner" style="width:32px;height:32px;border:3px solid var(--color-border);border-top-color:var(--color-primary);border-radius:50%;animation:spin 1s linear infinite;"></div>
+      </div>
+    `;
+    listEl.hidden = false;
+  }
+  if (emptyEl) emptyEl.hidden = true;
+
+  try {
+    const filtros = {
+      limit: notificationState.pageSize,
+      offset: (notificationState.currentPage - 1) * notificationState.pageSize
+    };
+    if (tabConfig.type) filtros.tipo = tabConfig.type;
+    if (tabConfig.leida !== undefined) filtros.leida = tabConfig.leida;
+
+    const res = await GET(`/api/notificaciones?${new URLSearchParams({
+      tipo: filtros.tipo || '',
+      leida: filtros.leida !== undefined ? String(filtros.leida) : '',
+      limit: String(filtros.limit),
+      offset: String(filtros.offset)
+    })}`);
+
+    notificationState.totalItems = res.total;
+    renderNotifications(tabId, res.items);
+    updatePagination();
+  } catch (e) {
+    showToast(e.message, 'error', 'Error al cargar notificaciones');
+    const listEl = $(`#notif-list-${tabId}`);
+    const emptyEl = $(`#empty-notif-${tabId}`);
+    if (listEl) listEl.innerHTML = '';
+    if (emptyEl) {
+      emptyEl.hidden = false;
+      emptyEl.querySelector('.empty-state__message').textContent = e.message;
+    }
+  } finally {
+    notificationState.isLoading = false;
+  }
+}
+
+function renderNotifications(tabId, items) {
+  const listEl = $(`#notif-list-${tabId}`);
+  const emptyEl = $(`#empty-notif-${tabId}`);
+
+  if (!listEl) return;
+
+  if (!items.length) {
+    listEl.innerHTML = '';
+    listEl.hidden = true;
+    if (emptyEl) emptyEl.hidden = false;
+    return;
+  }
+
+  listEl.hidden = false;
+  if (emptyEl) emptyEl.hidden = true;
+
+  listEl.innerHTML = items.map(item => renderNotificationItem(item)).join('');
+
+  // Attach click listeners to mark as read
+  listEl.querySelectorAll('.notification-item').forEach((itemEl, index) => {
+    const notificationId = itemEl.dataset.notificationId;
+    itemEl.addEventListener('click', () => markAsRead(notificationId, itemEl));
+  });
+}
+
+function renderNotificationItem(item) {
+  const icon = NOTIFICATION_ICONS[item.tipo] || '🔔';
+  const iconClass = NOTIFICATION_ICON_CLASSES[item.tipo] || '';
+  const isUnread = !item.leida;
+  const dateStr = new Date(item.fecha).toLocaleString('es-MX', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  });
+
+  return `
+    <article class="notification-item ${isUnread ? 'notification-item--unread' : ''}" data-notification-id="${item.id_notificacion}" role="listitem" tabindex="0">
+      <div class="notification-item__icon ${iconClass}" aria-hidden="true">${icon}</div>
+      <div class="notification-item__content">
+        <h4 class="notification-item__title">${esc(item.titulo)}</h4>
+        ${item.mensaje ? `<p class="notification-item__message">${esc(item.mensaje)}</p>` : ''}
+        <div class="notification-item__meta">
+          <span class="notification-item__time">${dateStr}</span>
+          <span class="badge badge--${item.tipo}">${item.tipo}</span>
+        </div>
+      </div>
+      ${isUnread ? '<div class="notification-item__unread-dot" aria-label="No leída"></div>' : ''}
+    </article>
+  `;
+}
+
+async function markAsRead(notificationId, itemEl) {
+  if (!itemEl.classList.contains('notification-item--unread')) return;
+
+  try {
+    await PATCH(`/api/notificaciones/${notificationId}/leer`);
+    itemEl.classList.remove('notification-item--unread');
+    const dot = itemEl.querySelector('.notification-item__unread-dot');
+    if (dot) dot.remove();
+
+    // Update unread count in header
+    const badge = $('#alert-badge');
+    if (badge) {
+      const count = parseInt(badge.textContent) - 1;
+      badge.textContent = count > 0 ? count : '';
+      badge.hidden = count === 0;
+    }
+    State.alertCount = count > 0 ? count : 0;
+  } catch (e) {
+    showToast(e.message, 'error', 'Error al marcar como leída');
+  }
+}
+
+async function markAllAsRead() {
+  try {
+    const res = await POST('/api/notificaciones/leer-todas');
+    showToast(`${res.count} notificaciones marcadas como leídas`, 'success');
+
+    // Reload current tab
+    loadNotificationsForTab(notificationState.currentTab);
+
+    // Update unread count in header
+    const badge = $('#alert-badge');
+    if (badge) {
+      badge.textContent = '';
+      badge.hidden = true;
+    }
+    State.alertCount = 0;
+  } catch (e) {
+    showToast(e.message, 'error', 'Error al marcar todas como leídas');
+  }
+}
+
+function updatePagination() {
+  const paginationEl = $('#notif-pagination');
+  const btnPrev = $('#notif-btn-prev');
+  const btnNext = $('#notif-btn-next');
+  const infoEl = $('#notif-pagination-info');
+
+  if (!paginationEl) return;
+
+  const totalPages = Math.ceil(notificationState.totalItems / notificationState.pageSize);
+
+  if (totalPages <= 1) {
+    paginationEl.hidden = true;
+    return;
+  }
+
+  paginationEl.hidden = false;
+  if (btnPrev) btnPrev.disabled = notificationState.currentPage <= 1;
+  if (btnNext) btnNext.disabled = notificationState.currentPage >= totalPages;
+  if (infoEl) infoEl.textContent = `Página ${notificationState.currentPage} de ${totalPages}`;
+}
+
 /* ---------- Alerts Polling ---------- */
 function pollAlerts() {
   async function check() {
@@ -2029,38 +3591,32 @@ function refreshCurrentPage() {
 async function initApp() {
   initTheme();
 
-  // Check auth state - first try JWT token from localStorage
-  const token = getAuthToken();
-  let user = null;
+  // Check auth state - validate JWT token from localStorage
+  const user = await validateToken();
 
-  if (token) {
-    try {
-      const perfil = await GET('/api/usuario/perfil');
-      user = { ...perfil, googleConnected: perfil.googleConectado || false };
-    } catch (e) {
-      // Token invalid or expired, clear it
-      clearAuth();
+  if (user) {
+    // Valid token - update UI and navigate to appropriate page
+    updateUserUI(user);
+
+    // Initial navigation - use hash or default based on role
+    const initialPage = location.hash.slice(1);
+    if (initialPage && pages[initialPage]) {
+      navigate(initialPage, false);
+    } else {
+      // Default to agenda for students, admin-usuarios for admins
+      navigate(user.rol === 'admin' ? 'admin-usuarios' : 'agenda', false);
     }
-  }
-
-  // If no valid JWT, fall back to Google OAuth check (for backward compatibility)
-  if (!user) {
-    try {
-      const auth = await GET('/api/auth/google/estado');
-      user = { ...auth, googleConnected: auth.conectado };
-    } catch {
-      user = { nombre: 'Estudiante Demo', correo: 'demo@capu.local', rol: 'estudiante', googleConnected: false };
-    }
-  }
-
-  updateUserUI(user);
-
-  // Initial navigation
-  const initialPage = location.hash.slice(1) || 'agenda';
-  if (pages[initialPage]) {
-    navigate(initialPage, false);
   } else {
-    navigate('agenda', false);
+    // No valid token - show login page
+    updateUserUI(null);
+
+    // Initial navigation - default to login
+    const initialPage = location.hash.slice(1);
+    if (initialPage && pages[initialPage] && PUBLIC_PAGES.includes(initialPage)) {
+      navigate(initialPage, false);
+    } else {
+      navigate('login', false);
+    }
   }
 
   // Start alerts polling
@@ -2069,13 +3625,454 @@ async function initApp() {
   // Update header tokens periodically
   setInterval(updateHeaderTokens, 60000);
 
+  // Validate token on visibility change (tab focus)
+  document.addEventListener('visibilitychange', async () => {
+    if (!document.hidden) {
+      const currentUser = await validateToken();
+      if (!currentUser && !PUBLIC_PAGES.includes(State.currentPage)) {
+        // Token expired while away, redirect to login
+        navigate('login');
+      } else if (currentUser) {
+        updateUserUI(currentUser);
+      }
+    }
+  });
+
   console.log('CAPU app initialized');
+
+  // Check and show onboarding for new users
+  if (user && !user.onboarding_completado) {
+    setTimeout(() => showOnboarding(user), 1000);
+  }
 }
 
-// Start when DOM ready
+// Onboarding tour steps
+const ONBOARDING_STEPS = [
+  {
+    element: '#header',
+    title: '¡Bienvenido a CAPU!',
+    content: 'Esta es la barra superior. Aquí encontrarás tu perfil, notificaciones y el menú principal.',
+    position: 'bottom'
+  },
+  {
+    element: '#sidebar',
+    title: 'Navegación lateral',
+    content: 'Desde aquí puedes acceder a todas las secciones: Agenda, Calendario, Notificaciones, Tokens, Resumen y Perfil.',
+    position: 'right'
+  },
+  {
+    element: '#page-agenda',
+    title: 'Tu Agenda',
+    content: 'Aquí verás todas tus tareas organizadas. Puedes filtrar por curso, estado y ver el progreso de cada una.',
+    position: 'center'
+  },
+  {
+    element: '#page-calendario',
+    title: 'Vista de Calendario',
+    content: 'Visualiza tus tareas en vista mensual o semanal. Haz clic en cualquier día para ver el detalle.',
+    position: 'center'
+  },
+  {
+    element: '#page-notificaciones',
+    title: 'Centro de Notificaciones',
+    content: 'Recibe alertas de entregas, recordatorios y tareas vencidas. Marca como leídas o haz clic para ver detalles.',
+    position: 'center'
+  },
+  {
+    element: '#page-tokens',
+    title: 'Sistema de Tokens',
+    content: 'Gana tokens por entregas a tiempo y cámbialos por recompensas. Mantén tu racha diaria para bonos extra.',
+    position: 'center'
+  },
+  {
+    element: '#page-perfil',
+    title: 'Tu Perfil',
+    content: 'Configura tus preferencias, conecta Google Classroom para sincronizar tareas automáticamente y gestiona tu cuenta.',
+    position: 'center'
+  }
+];
+
+let onboardingState = {
+  currentStep: 0,
+  overlay: null,
+  tooltip: null
+};
+
+function showOnboarding(user) {
+  // Create overlay
+  const overlay = document.createElement('div');
+  overlay.className = 'onboarding-overlay';
+  overlay.innerHTML = `
+    <div class="onboarding-tooltip" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+      <header class="onboarding-tooltip__header">
+        <h3 id="onboarding-title" class="onboarding-tooltip__title"></h3>
+        <button class="onboarding-tooltip__skip" aria-label="Saltar tutorial">Saltar</button>
+      </header>
+      <div class="onboarding-tooltip__body">
+        <p class="onboarding-tooltip__content"></p>
+        <div class="onboarding-tooltip__progress" role="progressbar" aria-valuenow="1" aria-valuemin="1" aria-valuemax="${ONBOARDING_STEPS.length}">
+          <span class="onboarding-tooltip__step"></span>
+        </div>
+      </div>
+      <footer class="onboarding-tooltip__footer">
+        <button class="btn btn--ghost onboarding-tooltip__prev" hidden>Anterior</button>
+        <button class="btn btn--primary onboarding-tooltip__next">Siguiente</button>
+      </footer>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  document.body.style.overflow = 'hidden';
+
+  onboardingState.overlay = overlay;
+  onboardingState.tooltip = overlay.querySelector('.onboarding-tooltip');
+  onboardingState.currentStep = 0;
+
+  // Attach event listeners
+  overlay.querySelector('.onboarding-tooltip__skip').addEventListener('click', () => completeOnboarding(user));
+  overlay.querySelector('.onboarding-tooltip__prev').addEventListener('click', () => previousStep());
+  overlay.querySelector('.onboarding-tooltip__next').addEventListener('click', () => nextStep(user));
+
+  // Close on overlay click (outside tooltip)
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      completeOnboarding(user);
+    }
+  });
+
+  // Handle ESC key
+  const handleEsc = (e) => {
+    if (e.key === 'Escape') {
+      completeOnboarding(user);
+      document.removeEventListener('keydown', handleEsc);
+    }
+  };
+  document.addEventListener('keydown', handleEsc);
+
+  showStep();
+}
+
+function showStep() {
+  const step = ONBOARDING_STEPS[onboardingState.currentStep];
+  const tooltip = onboardingState.tooltip;
+
+  if (!step || !tooltip) return;
+
+  // Update content
+  tooltip.querySelector('.onboarding-tooltip__title').textContent = step.title;
+  tooltip.querySelector('.onboarding-tooltip__content').textContent = step.content;
+  tooltip.querySelector('.onboarding-tooltip__step').textContent = `Paso ${onboardingState.currentStep + 1} de ${ONBOARDING_STEPS.length}`;
+  tooltip.querySelector('.onboarding-tooltip__progress').setAttribute('aria-valuenow', onboardingState.currentStep + 1);
+
+  // Update buttons
+  const prevBtn = tooltip.querySelector('.onboarding-tooltip__prev');
+  const nextBtn = tooltip.querySelector('.onboarding-tooltip__next');
+
+  prevBtn.hidden = onboardingState.currentStep === 0;
+  nextBtn.textContent = onboardingState.currentStep === ONBOARDING_STEPS.length - 1 ? 'Finalizar' : 'Siguiente';
+
+  // Position tooltip relative to target element
+  const target = document.querySelector(step.element);
+  if (target) {
+    const rect = target.getBoundingClientRect();
+    const tooltipRect = tooltip.getBoundingClientRect();
+
+    let top, left;
+
+    switch (step.position) {
+      case 'bottom':
+        top = rect.bottom + 10;
+        left = rect.left + (rect.width - tooltipRect.width) / 2;
+        break;
+      case 'right':
+        top = rect.top + (rect.height - tooltipRect.height) / 2;
+        left = rect.right + 10;
+        break;
+      case 'center':
+      default:
+        top = (window.innerHeight - tooltipRect.height) / 2;
+        left = (window.innerWidth - tooltipRect.width) / 2;
+        break;
+    }
+
+    // Keep within viewport
+    top = Math.max(10, Math.min(top, window.innerHeight - tooltipRect.height - 10));
+    left = Math.max(10, Math.min(left, window.innerWidth - tooltipRect.width - 10));
+
+    tooltip.style.top = `${top}px`;
+    tooltip.style.left = `${left}px`;
+  } else {
+    // Center if target not found
+    tooltip.style.top = '50%';
+    tooltip.style.left = '50%';
+    tooltip.style.transform = 'translate(-50%, -50%)';
+  }
+
+  // Highlight target element
+  document.querySelectorAll('.onboarding-highlight').forEach(el => el.classList.remove('onboarding-highlight'));
+  if (target) target.classList.add('onboarding-highlight');
+}
+
+function nextStep(user) {
+  if (onboardingState.currentStep < ONBOARDING_STEPS.length - 1) {
+    onboardingState.currentStep++;
+    showStep();
+  } else {
+    completeOnboarding(user);
+  }
+}
+
+function previousStep() {
+  if (onboardingState.currentStep > 0) {
+    onboardingState.currentStep--;
+    showStep();
+  }
+}
+
+async function completeOnboarding(user) {
+  // Remove highlight
+  document.querySelectorAll('.onboarding-highlight').forEach(el => el.classList.remove('onboarding-highlight'));
+
+  // Remove overlay
+  if (onboardingState.overlay) {
+    onboardingState.overlay.remove();
+    onboardingState.overlay = null;
+    onboardingState.tooltip = null;
+  }
+  document.body.style.overflow = '';
+
+  // Mark onboarding as completed in backend
+  try {
+    await PATCH('/api/usuario/perfil', { onboarding_completado: 1 });
+    user.onboarding_completado = 1;
+    updateUserUI(user);
+  } catch (e) {
+    console.error('Error marking onboarding as completed:', e);
+  }
+}
+
+// Add onboarding styles dynamically
+const onboardingStyles = document.createElement('style');
+onboardingStyles.textContent = `
+.onboarding-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 10000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  animation: fade-in 0.3s ease;
+}
+
+.onboarding-tooltip {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  max-width: 360px;
+  box-shadow: var(--shadow-xl);
+  position: absolute;
+  animation: slide-up 0.3s ease;
+}
+
+.onboarding-tooltip__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--space-3);
+}
+
+.onboarding-tooltip__title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.onboarding-tooltip__skip {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  padding: var(--space-1);
+}
+
+.onboarding-tooltip__skip:hover {
+  color: var(--color-text);
+}
+
+.onboarding-tooltip__content {
+  margin: 0 0 var(--space-4);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.onboarding-tooltip__progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-4);
+}
+
+.onboarding-tooltip__footer {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.onboarding-highlight {
+  position: relative;
+  z-index: 10001 !important;
+  box-shadow: 0 0 0 4px var(--color-primary) !important;
+  border-radius: var(--radius-md) !important;
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+`;
+document.head.appendChild(onboardingStyles);
+
+// Service Worker Registration (PWA/Offline Support - Fase 9)
+async function registerServiceWorker() {
+  if ('serviceWorker' in navigator) {
+    try {
+      const registration = await navigator.serviceWorker.register('/sw.js', {
+        scope: '/'
+      });
+      console.log('[SW] Service Worker registered:', registration.scope);
+
+      // Handle updates
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            // New version available
+            showToast('Nueva versión disponible. Recarga la página.', 'info', 'Actualización', 10000);
+          }
+        });
+      });
+
+      // Listen for controller change (new SW took control)
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+      });
+
+    } catch (error) {
+      console.error('[SW] Service Worker registration failed:', error);
+    }
+  }
+}
+
+// Online/Offline detection
+function setupOnlineOfflineDetection() {
+  const updateOnlineStatus = () => {
+    const isOnline = navigator.onLine;
+    const indicator = $('#offline-indicator');
+
+    if (indicator) {
+      indicator.hidden = isOnline;
+      indicator.setAttribute('aria-hidden', isOnline);
+    }
+
+    // Show toast when coming back online
+    if (isOnline && !State.wasOnline) {
+      showToast('Conexión restaurada', 'success');
+      // Trigger background sync
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.ready.then(reg => {
+          reg.sync.register('sync-tasks').catch(() => {});
+        });
+      }
+    } else if (!isOnline && State.wasOnline) {
+      showToast('Sin conexión. Trabajando en modo offline.', 'warning', 'Offline', 5000);
+    }
+
+    State.wasOnline = isOnline;
+  };
+
+  // Initial state
+  State.wasOnline = navigator.onLine;
+
+  // Listen for online/offline events
+  window.addEventListener('online', updateOnlineStatus);
+  window.addEventListener('offline', updateOnlineStatus);
+
+  // Create offline indicator element if it doesn't exist
+  if (!$('#offline-indicator')) {
+    const indicator = document.createElement('div');
+    indicator.id = 'offline-indicator';
+    indicator.className = 'offline-indicator';
+    indicator.hidden = true;
+    indicator.setAttribute('aria-hidden', 'true');
+    indicator.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <line x1="1" y1="1" x2="23" y2="23"/>
+        <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
+        <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
+        <path d="M10.71 5.05A16 16 0 0 1 22.58 9"/>
+        <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
+        <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+        <line x1="12" y1="20" x2="12.01" y2="20"/>
+      </svg>
+      <span>Sin conexión</span>
+    `;
+    document.body.appendChild(indicator);
+
+    // Add styles for offline indicator
+    const offlineStyles = document.createElement('style');
+    offlineStyles.textContent = `
+      .offline-indicator {
+        position: fixed;
+        bottom: var(--space-4);
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--color-error);
+        color: white;
+        padding: var(--space-2) var(--space-4);
+        border-radius: var(--radius-full);
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        font-size: var(--text-sm);
+        font-weight: 500;
+        box-shadow: var(--shadow-lg);
+        z-index: 1000;
+        animation: slide-up 0.3s ease;
+      }
+      .offline-indicator[hidden] {
+        display: none !important;
+      }
+      .offline-indicator svg {
+        flex-shrink: 0;
+      }
+    `;
+    document.head.appendChild(offlineStyles);
+  }
+
+  updateOnlineStatus();
+}
+
+// Register SW and setup online/offline detection when DOM ready
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initApp);
+  document.addEventListener('DOMContentLoaded', () => {
+    registerServiceWorker();
+    setupOnlineOfflineDetection();
+    initApp();
+  });
 } else {
+  registerServiceWorker();
+  setupOnlineOfflineDetection();
   initApp();
 }
 

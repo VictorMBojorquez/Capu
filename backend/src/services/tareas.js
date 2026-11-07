@@ -129,6 +129,40 @@ function metricas(db, ahora, idUsuario = 1) {
   };
 }
 
+/** Obtener tareas para vista de calendario (agrupadas por fecha) */
+function calendario(db, mes, userId) {
+  // mes format: YYYY-MM
+  const inicio = `${mes}-01`;
+  const fin = new Date(mes + '-01');
+  fin.setMonth(fin.getMonth() + 1);
+  const finStr = fin.toISOString().slice(0, 10);
+
+  const tareas = db.prepare(`
+    SELECT t.*, c.nombre AS curso
+    FROM tarea t
+    JOIN curso c ON t.id_curso = c.id_curso
+    WHERE c.id_usuario = ?
+      AND date(t.fecha_limite) >= date(?)
+      AND date(t.fecha_limite) < date(?)
+    ORDER BY t.fecha_limite
+  `).all(userId, inicio, finStr);
+
+  // Group by date
+  const grouped = {};
+  const ahora = new Date().toISOString();
+
+  for (const t of tareas) {
+    const fecha = t.fecha_limite.slice(0, 10); // YYYY-MM-DD
+    if (!grouped[fecha]) grouped[fecha] = [];
+    grouped[fecha].push({
+      ...t,
+      estado_visible: estadoVisible(t, ahora)
+    });
+  }
+
+  return grouped;
+}
+
 module.exports = {
   listar,
   obtener,
@@ -138,5 +172,6 @@ module.exports = {
   crearTareaCustom,
   actualizarTareaCustom,
   eliminarTareaCustom,
-  listarTareasCustom
+  listarTareasCustom,
+  calendario
 };

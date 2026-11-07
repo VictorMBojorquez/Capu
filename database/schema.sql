@@ -20,7 +20,8 @@ CREATE TABLE IF NOT EXISTS usuario (
   ultima_entrega_ok TEXT,            -- fecha (YYYY-MM-DD) de la última entrega a tiempo
   preferencias_notificaciones TEXT DEFAULT '{"push":true,"correo":false,"recordatorio_24h":true,"recordatorio_1h":true}',
   avatar_url    TEXT,
-  created_at    TEXT DEFAULT '2024-01-01 00:00:00'
+  created_at    TEXT DEFAULT '2024-01-01 00:00:00',
+  onboarding_completado INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_usuario_email ON usuario(correo);
@@ -94,3 +95,36 @@ CREATE TABLE IF NOT EXISTS canje (
 
 CREATE INDEX IF NOT EXISTS idx_tarea_fecha ON tarea(fecha_limite);
 CREATE INDEX IF NOT EXISTS idx_recordatorio_pend ON recordatorio(enviado, fecha_hora);
+
+-- Notificaciones (Centro de Notificaciones - Fase 4)
+CREATE TABLE IF NOT EXISTS notificacion (
+  id_notificacion INTEGER PRIMARY KEY AUTOINCREMENT,
+  id_usuario    INTEGER NOT NULL REFERENCES usuario(id_usuario) ON DELETE CASCADE,
+  tipo          TEXT NOT NULL CHECK (tipo IN ('entrega', 'recordatorio', 'vencida', 'sistema', 'recompensa')),
+  titulo        TEXT NOT NULL,
+  mensaje       TEXT,
+  leida         INTEGER NOT NULL DEFAULT 0,
+  datos_json    TEXT,              -- datos adicionales en JSON (ej: id_tarea, id_recompensa)
+  fecha         TEXT NOT NULL      -- ISO 8601
+);
+
+CREATE INDEX IF NOT EXISTS idx_notificacion_usuario_fecha ON notificacion(id_usuario, fecha DESC);
+CREATE INDEX IF NOT EXISTS idx_notificacion_usuario_leida ON notificacion(id_usuario, leida);
+
+-- Auditoría/Logs (Fase 6)
+CREATE TABLE IF NOT EXISTS auditoria (
+  id_auditoria    INTEGER PRIMARY KEY AUTOINCREMENT,
+  id_usuario      INTEGER REFERENCES usuario(id_usuario) ON DELETE SET NULL,
+  accion          TEXT NOT NULL,
+  entidad         TEXT,
+  entidad_id      INTEGER,
+  datos_anteriores TEXT,  -- JSON
+  datos_nuevos    TEXT,    -- JSON
+  ip              TEXT,
+  user_agent      TEXT,
+  fecha           TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_auditoria_usuario_fecha ON auditoria(id_usuario, fecha DESC);
+CREATE INDEX IF NOT EXISTS idx_auditoria_accion_fecha ON auditoria(accion, fecha DESC);
+CREATE INDEX IF NOT EXISTS idx_auditoria_entidad ON auditoria(entidad, entidad_id);

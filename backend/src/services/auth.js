@@ -2,7 +2,8 @@ const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const { now } = require('../clock');
 const { generateToken } = require('./jwt');
-const { FRONTEND_URL, BCRYPT_ROUNDS } = require('../config/env');
+const { FRONTEND_URL, BCRYPT_ROUNDS, APP_URL } = require('../config/env');
+const { enviarVerificacionEmail, enviarResetPassword, enviarBienvenida } = require('./email');
 
 /** Registrar nuevo usuario con email/password */
 async function registrarUsuario(db, { nombre, correo, password }) {
@@ -35,8 +36,21 @@ async function registrarUsuario(db, { nombre, correo, password }) {
 
   const userId = info.lastInsertRowid;
 
-  // TODO: Enviar email de verificación (Fase 12)
-  // await enviarVerificacionEmail({ id_usuario: userId, nombre, correo, verificationToken });
+  // Enviar email de verificación (Fase 12)
+  try {
+    await enviarVerificacionEmail(correo.toLowerCase(), nombre.trim(), verificationToken);
+  } catch (emailError) {
+    console.error('[Auth] Error sending verification email:', emailError);
+    // No fallar el registro si falla el email
+  }
+
+  // Enviar email de bienvenida (Fase 12)
+  try {
+    await enviarBienvenida(correo.toLowerCase(), nombre.trim());
+  } catch (emailError) {
+    console.error('[Auth] Error sending welcome email:', emailError);
+    // No fallar el registro si falla el email
+  }
 
   const token = generateToken({ sub: userId, correo, rol: 'estudiante' });
 
@@ -96,7 +110,7 @@ async function verificarEmail(db, token) {
 async function solicitarResetPassword(db, correo) {
   if (!correo?.trim()) throw Object.assign(new Error('Email requerido'), { status: 400 });
 
-  const user = db.prepare('SELECT id_usuario FROM usuario WHERE correo = ? AND auth_provider IN (\'email\', \'both\')').get(correo.toLowerCase());
+  const user = db.prepare('SELECT id_usuario, nombre FROM usuario WHERE correo = ? AND auth_provider IN (\'email\', \'both\')').get(correo.toLowerCase());
 
   // Siempre respondemos OK por seguridad (no revelar si existe el email)
   if (!user) return { ok: true, mensaje: 'Si el email existe, recibirás un enlace para restablecer tu contraseña' };
@@ -106,8 +120,13 @@ async function solicitarResetPassword(db, correo) {
 
   db.prepare('UPDATE usuario SET password_reset_token = ?, password_reset_expires = ? WHERE id_usuario = ?').run(resetToken, resetExpires, user.id_usuario);
 
-  // TODO: Enviar email de reset (Fase 12)
-  // await enviarResetPassword({ id_usuario: user.id_usuario, nombre: user.nombre, correo, resetToken });
+  // Enviar email de reset (Fase 12)
+  try {
+    await enviarResetPassword(correo.toLowerCase(), user.nombre, resetToken);
+  } catch (emailError) {
+    console.error('[Auth] Error sending reset email:', emailError);
+    // No fallar si falla el email
+  }
 
   return { ok: true, mensaje: 'Si el email existe, recibirás un enlace para restablecer tu contraseña' };
 }

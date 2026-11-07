@@ -2,7 +2,15 @@
 function seed(db) {
   const hay = db.prepare('SELECT COUNT(*) AS n FROM usuario').get().n;
   if (hay) return false;
-  db.prepare("INSERT INTO usuario (google_id, nombre, correo) VALUES ('demo', 'Estudiante Demo', 'demo@capu.local')").run();
+
+  // Usuario demo (estudiante)
+  db.prepare(`INSERT INTO usuario (google_id, nombre, correo, rol, preferencias_notificaciones)
+    VALUES ('demo', 'Estudiante Demo', 'demo@capu.local', 'estudiante', '{"push":true,"correo":false,"recordatorio_24h":true,"recordatorio_1h":true}')`).run();
+
+  // Usuario admin (el que se conecta con Google OAuth - email del .env)
+  db.prepare(`INSERT INTO usuario (google_id, nombre, correo, rol, preferencias_notificaciones)
+    VALUES ('admin-oauth', 'Administrador CAPU', 'l23211974@tectijuana.edu.mx', 'admin', '{"push":true,"correo":false,"recordatorio_24h":true,"recordatorio_1h":true}')`).run();
+
   const ins = db.prepare('INSERT INTO recompensa (nombre, costo_tokens) VALUES (?, ?)');
   [['Tema oscuro para la agenda', 20], ['Insignia “Madrugador”', 35], ['Avatar de Capu con gorro', 50], ['Pausa de racha (1 día)', 80]]
     .forEach(([n, c]) => ins.run(n, c));

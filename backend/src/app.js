@@ -1,5 +1,6 @@
 const path = require('node:path');
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const { openDb } = require('./db');
 const { seed } = require('./seed');
 const { now } = require('./clock');
@@ -9,6 +10,11 @@ const reminders = require('./services/reminders');
 const { sincronizar } = require('./services/sync');
 const alertas = require('./services/alertas');
 const oauth = require('./services/oauth');
+const admin = require('./services/admin');
+const usuario = require('./services/usuario');
+const auth = require('./services/auth');
+const { authMiddleware } = require('./services/jwt');
+const { RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX_REQUESTS } = require('./config/env');
 const mockAdapter = require('./services/classroom/mock');
 const googleAdapter = require('./services/classroom/google');
 
@@ -25,10 +31,42 @@ function createApp(db = openDb()) {
 
   const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res)).then((r) => r !== undefined && res.json(r)).catch(next);
 
+  // Health check
   app.get('/api/health', (req, res) => res.json({ ok: true, version: require('../../package.json').version, ahora: now().toISOString() }));
 
-  // RF-01: OAuth 2.0 con Google (código de autorización + PKCE).
-  // 'iniciar' manda al consentimiento; 'callback' guarda la credencial y la identidad real.
+  // Rate limiter para endpoints de auth públicos
+  const authLimiter = rateLimit({
+    windowMs: RATE_LIMIT_WINDOW_MS,
+    max: RATE_LIMIT_MAX_REQUESTS,
+    message: { error: 'Demasiadas solicitudes, inténtalo más tarde' },
+    standardHeaders: true,
+    legacyHeaders: false
+  });
+
+  // ============================================================
+  // Auth Email/Password (Fase 11)
+  // ============================================================
+  // POST /api/auth/registro - Registro público
+  app.post('/api/auth/registro', authLimiter, wrap(async (req) => auth.registrarUsuario(db, req.body)));
+
+  // POST /api/auth/login - Login email/password
+  app.post('/api/auth/login', authLimiter, wrap(async (req) => auth.loginEmailPassword(db, req.body)));
+
+  // GET /api/auth/verificar-email?token= - Verificación email
+  app.get('/api/auth/verificar-email', wrap(async (req) => auth.verificarEmail(db, req.query.token)));
+
+  // POST /api/auth/olvide-password - Solicitar reset
+  app.post('/api/auth/olvide-password', authLimiter, wrap(async (req) => auth.solicitarResetPassword(db, req.body.correo)));
+
+  // POST /api/auth/reset-password - Reset con token
+  app.post('/api/auth/reset-password', wrap(async (req) => auth.resetPassword(db, req.body)));
+
+  // PATCH /api/auth/cambiar-password - Protegido (usuario actual)
+  app.patch('/api/auth/cambiar-password', authMiddleware(db), wrap(async (req) => auth.cambiarPassword(db, req.user.id_usuario, req.body)));
+
+  // ============================================================
+  // RF-01: OAuth 2.0 con Google (código de autorización + PKCE)
+  // ============================================================
   app.get('/api/auth/google/iniciar', (req, res) => {
     try {
       const { estado, reto } = oauth.crearEstado();
@@ -42,6 +80,26 @@ function createApp(db = openDb()) {
       if (!verificador)
         return res.status(400).json({ error: 'Estado de OAuth inválido o expirado; inténtalo de nuevo' });
       const t = await oauth.canjearCodigo(String(req.query.code || ''), oauth.config(), { verificador });
+
+      // Obtener identidad de Google (sub, email, name)
+      const identidad = t.id_token ? oauth.identidad(t.id_token) : null;
+
+      if (identidad?.email) {
+        // Buscar si ya existe un usuario con este email
+        const existing = db.prepare('SELECT id_usuario, auth_provider FROM usuario WHERE correo = ?').get(identidad.email.toLowerCase());
+        if (existing) {
+          // Si existe con auth_provider='email', vincular Google
+          if (existing.auth_provider === 'email') {
+            await auth.vincularGoogle(db, existing.id_usuario, identidad.sub);
+          }
+          // Guardar credencial y redirigir
+          oauth.guardar(db, existing.id_usuario, t, now());
+          return res.redirect(302, '/?classroom=ok');
+        }
+      }
+
+      // Si no existe, crear nuevo usuario con Google (usando usuario demo id=1 por ahora)
+      // TODO: En producción, crear usuario nuevo basado en identidad
       oauth.guardar(db, 1, t, now());
       return res.redirect(302, '/?classroom=ok');
     } catch (e) {
@@ -52,37 +110,82 @@ function createApp(db = openDb()) {
   });
   app.get('/api/auth/google/estado', wrap(async () => {
     const conectado = Boolean(await oauth.tokenValido(db, 1, now()));
-    const u = db.prepare('SELECT nombre, correo FROM usuario WHERE id_usuario = 1').get();
-    return { conectado, nombre: u.nombre, correo: u.correo };
+    const u = db.prepare('SELECT nombre, correo, rol FROM usuario WHERE id_usuario = 1').get();
+    return { conectado, nombre: u.nombre, correo: u.correo, rol: u.rol };
   }));
   app.delete('/api/auth/google', wrap(async () => { await oauth.desconectar(db, 1); return { ok: true }; }));
 
-  // RF-03: sincronización. Prioridad: cabecera x-google-token > credencial OAuth guardada > datos de demostración.
+  // ============================================================
+  // Perfil de Usuario y Preferencias
+  // ============================================================
+  // Obtener perfil completo
+  app.get('/api/usuario/perfil', wrap(async () => usuario.getPerfil(db, 1)));
+
+  // Actualizar perfil (nombre)
+  app.patch('/api/usuario/perfil', wrap(async (req) => usuario.actualizarPerfil(db, 1, req.body)));
+
+  // Preferencias de notificaciones
+  app.get('/api/usuario/preferencias', wrap(async () => usuario.getPreferencias(db, 1)));
+  app.patch('/api/usuario/preferencias', wrap(async (req) => usuario.actualizarPreferencias(db, 1, req.body)));
+
+  // Desconectar Google (wrapper)
+  app.delete('/api/usuario/google', wrap(async () => usuario.desconectarGoogle(db, 1)));
+
+  // Eliminar cuenta
+  app.delete('/api/usuario/cuenta', wrap(async () => usuario.eliminarCuenta(db, 1)));
+
+  // ============================================================
+  // RF-03: Sincronización
+  // ============================================================
   app.post('/api/sync', wrap(async (req) => {
     const token = req.get('x-google-token') || await oauth.tokenValido(db, 1, now());
     const adaptador = token ? googleAdapter(token) : mockAdapter(now());
     return { adaptador: adaptador.nombre, ...(await sincronizar(db, adaptador, now())) };
   }));
 
-  // RF-04: agenda con filtros por curso y estado.
+  // ============================================================
+  // RF-04: Agenda con filtros
+  // ============================================================
   app.get('/api/cursos', wrap(async () => db.prepare('SELECT id_curso, nombre FROM curso ORDER BY nombre').all()));
-  app.get('/api/tareas', wrap(async (req) => tareas.listar(db, now(), { curso: req.query.curso, estado: req.query.estado })));
 
-  // RF-05: seguimiento de avance.
+  // ============================================================
+  // Tareas Personalizadas (Custom Tasks) - MUST come before /api/tareas/:id
+  // ============================================================
+  app.get('/api/tareas/custom', wrap(async (req) => tareas.listarTareasCustom(db, 1, { curso: req.query.curso, estado: req.query.estado })));
+  app.post('/api/tareas/custom', wrap(async (req) => tareas.crearTareaCustom(db, 1, req.body)));
+  app.patch('/api/tareas/custom/:id', wrap(async (req) => tareas.actualizarTareaCustom(db, 1, Number(req.params.id), req.body)));
+  app.delete('/api/tareas/custom/:id', wrap(async (req) => tareas.eliminarTareaCustom(db, 1, Number(req.params.id))));
+
+  app.get('/api/tareas', wrap(async (req) => tareas.listar(db, now(), { curso: req.query.curso, estado: req.query.estado, source: req.query.source })));
+  app.get('/api/tareas/:id', wrap(async (req) => {
+    const tarea = tareas.obtener(db, now(), Number(req.params.id));
+    if (!tarea) throw { status: 404, message: 'Tarea no encontrada' };
+    return tarea;
+  }));
+
+  // ============================================================
+  // RF-05: Seguimiento de avance
+  // ============================================================
   app.patch('/api/tareas/:id', wrap(async (req) => {
     tareas.actualizarAvance(db, Number(req.params.id), req.body.avance_pct);
     return { ok: true };
   }));
 
-  // RF-07: entrega completada (otorga tokens).
+  // ============================================================
+  // RF-07: Entrega completada (otorga tokens)
+  // ============================================================
   app.post('/api/tareas/:id/completar', wrap(async (req) => tokens.registrarEntrega(db, Number(req.params.id), now())));
 
-  // RF-06: recordatorios y alertas de la app (próximas a vencer y vencidas).
+  // ============================================================
+  // RF-06: Recordatorios y alertas
+  // ============================================================
   app.get('/api/recordatorios/pendientes', wrap(async () => reminders.pendientes(db, now())));
   app.post('/api/recordatorios/procesar', wrap(async () => ({ enviados: reminders.procesar(db, now()) })));
   app.get('/api/alertas', wrap(async () => alertas.generar(db, now())));
 
-  // RF-08 / RF-09: tokens y recompensas.
+  // ============================================================
+  // RF-08 / RF-09: Tokens y recompensas
+  // ============================================================
   app.get('/api/tokens', wrap(async () => ({
     ...db.prepare('SELECT saldo_tokens, racha_dias FROM usuario WHERE id_usuario = 1').get(),
     historial: db.prepare('SELECT * FROM transaccion_token WHERE id_usuario = 1 ORDER BY fecha DESC, id_transaccion DESC LIMIT 50').all(),
@@ -90,16 +193,57 @@ function createApp(db = openDb()) {
   app.get('/api/recompensas', wrap(async () => db.prepare('SELECT * FROM recompensa WHERE activa = 1 ORDER BY costo_tokens').all()));
   app.post('/api/recompensas/:id/canjear', wrap(async (req) => tokens.canjear(db, Number(req.params.id), now())));
 
-  // RF-12: indicadores.
+  // ============================================================
+  // RF-12: Indicadores
+  // ============================================================
   app.get('/api/metricas', wrap(async () => tareas.metricas(db, now())));
 
+  // ============================================================
+  // ADMIN ROUTES (require admin role)
+  // ============================================================
+  const adminMiddleware = admin.requireAdmin(db);
+
+  // Usuarios
+  app.get('/api/admin/usuarios', adminMiddleware, wrap(async () => admin.listUsuarios(db)));
+  app.patch('/api/admin/usuarios/:id/rol', adminMiddleware, wrap(async (req) => admin.cambiarRolUsuario(db, Number(req.params.id), req.body.rol)));
+
+  // Cursos
+  app.get('/api/admin/cursos', adminMiddleware, wrap(async () => admin.listCursosAdmin(db)));
+
+  // Recompensas (CRUD completo)
+  app.get('/api/admin/recompensas', adminMiddleware, wrap(async () => admin.listRecompensasAdmin(db)));
+  app.get('/api/admin/recompensas/:id', adminMiddleware, wrap(async (req) => {
+    const r = db.prepare('SELECT * FROM recompensa WHERE id_recompensa = ?').get(Number(req.params.id));
+    if (!r) throw { status: 404, message: 'Recompensa no encontrada' };
+    return r;
+  }));
+  app.post('/api/admin/recompensas', adminMiddleware, wrap(async (req) => admin.crearRecompensa(db, req.body)));
+  app.patch('/api/admin/recompensas/:id', adminMiddleware, wrap(async (req) => admin.actualizarRecompensa(db, Number(req.params.id), req.body)));
+  app.delete('/api/admin/recompensas/:id', adminMiddleware, wrap(async (req) => admin.eliminarRecompensa(db, Number(req.params.id))));
+
+  // Métricas del sistema
+  app.get('/api/admin/metricas', adminMiddleware, wrap(async () => admin.metricasSistema(db)));
+
+  // Configuración OAuth
+  app.get('/api/admin/oauth', adminMiddleware, wrap(async () => admin.getOAuthConfig(db)));
+  app.post('/api/admin/oauth', adminMiddleware, wrap(async (req) => admin.saveOAuthConfig(db, req.body)));
+  app.post('/api/admin/oauth/test', adminMiddleware, wrap(async (req) => {
+    const config = admin.getOAuthConfig(db);
+    config.client_id = req.body.client_id || config.client_id;
+    return admin.testOAuthConnection(config);
+  }));
+
+  // 404 para API
   app.use('/api', (req, res) => res.status(404).json({ error: 'Ruta no encontrada' }));
+
+  // Error handler
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {
     const status = err.status || 500;
     if (status === 500) console.error(err);
     res.status(status).json({ error: status === 500 ? 'Error interno del servidor' : err.message });
   });
+
   return app;
 }
 

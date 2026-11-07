@@ -7,10 +7,23 @@ CREATE TABLE IF NOT EXISTS usuario (
   google_id     TEXT UNIQUE,
   nombre        TEXT NOT NULL,
   correo        TEXT NOT NULL,
+  password_hash TEXT,
+  email_verificado INTEGER NOT NULL DEFAULT 0,
+  email_verification_token TEXT,
+  email_verification_expires TEXT,
+  password_reset_token TEXT,
+  password_reset_expires TEXT,
+  auth_provider TEXT NOT NULL DEFAULT 'google' CHECK (auth_provider IN ('google', 'email', 'both')),
+  rol           TEXT NOT NULL DEFAULT 'estudiante' CHECK (rol IN ('estudiante','admin')),
   saldo_tokens  INTEGER NOT NULL DEFAULT 0 CHECK (saldo_tokens >= 0),
   racha_dias    INTEGER NOT NULL DEFAULT 0,
-  ultima_entrega_ok TEXT            -- fecha (YYYY-MM-DD) de la última entrega a tiempo
+  ultima_entrega_ok TEXT,            -- fecha (YYYY-MM-DD) de la última entrega a tiempo
+  preferencias_notificaciones TEXT DEFAULT '{"push":true,"correo":false,"recordatorio_24h":true,"recordatorio_1h":true}',
+  avatar_url    TEXT,
+  created_at    TEXT DEFAULT '2024-01-01 00:00:00'
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_usuario_email ON usuario(correo);
 
 -- Credencial OAuth 2.0 de Google (RF-01). Una fila por usuario; renovable con refresh_token.
 CREATE TABLE IF NOT EXISTS credencial_google (
@@ -32,7 +45,8 @@ CREATE TABLE IF NOT EXISTS curso (
 CREATE TABLE IF NOT EXISTS tarea (
   id_tarea      INTEGER PRIMARY KEY AUTOINCREMENT,
   id_curso      INTEGER NOT NULL REFERENCES curso(id_curso) ON DELETE CASCADE,
-  classroom_id  TEXT NOT NULL,
+  classroom_id  TEXT,               -- nullable para tareas personalizadas
+  source        TEXT NOT NULL DEFAULT 'classroom' CHECK (source IN ('classroom', 'custom')),
   titulo        TEXT NOT NULL,
   descripcion   TEXT,
   fecha_limite  TEXT NOT NULL,      -- ISO 8601 (UTC)
@@ -43,6 +57,8 @@ CREATE TABLE IF NOT EXISTS tarea (
   enlace        TEXT,               -- enlace directo a la tarea en Google Classroom (RF-10)
   UNIQUE (id_curso, classroom_id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_tarea_source ON tarea(source);
 
 CREATE TABLE IF NOT EXISTS recordatorio (
   id_recordatorio INTEGER PRIMARY KEY AUTOINCREMENT,

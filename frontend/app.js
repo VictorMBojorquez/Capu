@@ -43,14 +43,43 @@ const avatarColorClass = (str) => {
 };
 
 /* ---------- API Client ---------- */
+function getAuthToken() {
+  return localStorage.getItem('capu_token');
+}
+
+function setAuthToken(token) {
+  if (token) {
+    localStorage.setItem('capu_token', token);
+  } else {
+    localStorage.removeItem('capu_token');
+  }
+}
+
+function clearAuth() {
+  localStorage.removeItem('capu_token');
+  localStorage.removeItem('capu_user');
+}
+
 async function api(method, path, body) {
+  const headers = { 'content-type': 'application/json' };
+  const token = getAuthToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
   const res = await fetch(path, {
     method,
-    headers: { 'content-type': 'application/json' },
+    headers,
     body: body ? JSON.stringify(body) : undefined
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error(data.error || 'Error en la petición'), { status: res.status });
+  if (!res.ok) {
+    // If 401, clear auth and redirect to login
+    if (res.status === 401 && !path.startsWith('/api/auth/')) {
+      clearAuth();
+      window.location.href = '/#login';
+    }
+    throw Object.assign(new Error(data.error || 'Error en la petición'), { status: res.status });
+  }
   return data;
 }
 const GET = (path) => api('GET', path);
@@ -148,6 +177,12 @@ function debounce(fn, ms) {
 
 /* ---------- Navigation / Routing ---------- */
 const pages = {
+  // Public pages (no auth required)
+  register: { init: loadRegister, cleanup: () => {} },
+  login: { init: loadLogin, cleanup: () => {} },
+  'forgot-password': { init: loadForgotPassword, cleanup: () => {} },
+  'reset-password': { init: loadResetPassword, cleanup: () => {} },
+  // Protected pages (auth required)
   agenda: { init: loadAgenda, cleanup: () => {} },
   tokens: { init: loadTokens, cleanup: () => {} },
   resumen: { init: loadResumen, cleanup: () => {} },
@@ -159,8 +194,28 @@ const pages = {
   'admin-config': { init: loadAdminConfig, cleanup: () => {} }
 };
 
+// Public pages that don't require authentication
+const PUBLIC_PAGES = ['register', 'login', 'forgot-password', 'reset-password'];
+
 async function navigate(pageName, pushState = true) {
   if (!pages[pageName]) return;
+
+  // Check authentication for protected pages
+  const isPublicPage = PUBLIC_PAGES.includes(pageName);
+  const hasToken = !!getAuthToken();
+
+  if (!isPublicPage && !hasToken) {
+    // Redirect to login if trying to access protected page without auth
+    navigate('login', false);
+    return;
+  }
+
+  // If authenticated user tries to access public auth pages, redirect to agenda
+  if (isPublicPage && hasToken && pageName !== 'reset-password') {
+    // Allow reset-password even if authenticated (token in URL)
+    navigate('agenda', false);
+    return;
+  }
 
   // Update UI
   $$('[data-page]').forEach(el => {
@@ -187,6 +242,9 @@ async function navigate(pageName, pushState = true) {
 
   State.currentPage = pageName;
 
+  // Update navigation visibility based on auth state
+  updateNavigationVisibility(hasToken);
+
   // Initialize new page
   try {
     await pages[pageName].init();
@@ -201,6 +259,87 @@ function handleHashChange() {
 }
 
 window.addEventListener('hashchange', handleHashChange);
+
+/* ---------- Auth Navigation Visibility ---------- */
+function updateNavigationVisibility(isAuthenticated) {
+  const authOnlyElements = $$('.auth-only');
+  const publicOnlyElements = $$('.public-only');
+
+  authOnlyElements.forEach(el => {
+    el.style.display = isAuthenticated ? '' : 'none';
+  });
+  publicOnlyElements.forEach(el => {
+    el.style.display = isAuthenticated ? 'none' : '';
+  });
+
+  // Update bottom navigation for mobile
+  const bottomNavAuth = $('#bottom-nav');
+  const bottomNavPublic = $('#bottom-nav-public');
+  if (bottomNavAuth) {
+    bottomNavAuth.style.display = isAuthenticated ? 'block' : 'none';
+  }
+  if (bottomNavPublic) {
+    bottomNavPublic.style.display = isAuthenticated ? 'none' : 'block';
+  }
+
+  // Update sidebar - show/hide based on auth
+  const sidebarNav = $('#sidebar-nav');
+  if (sidebarNav) {
+    if (isAuthenticated) {
+      sidebarNav.innerHTML = `
+        <nav class="sidebar__nav" aria-label="Navegación principal">
+          <div class="sidebar__section">
+            <h2 class="sidebar__section-title">Principal</h2>
+            <a href="#agenda" class="sidebar__item" data-page="agenda" aria-current="false">
+              <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
+              <span class="sidebar__label">Agenda</span>
+            </a>
+            <a href="#tokens" class="sidebar__item" data-page="tokens" aria-current="false">
+              <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              <span class="sidebar__label">Tokens</span>
+            </a>
+            <a href="#resumen" class="sidebar__item" data-page="resumen" aria-current="false">
+              <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
+              <span class="sidebar__label">Resumen</span>
+            </a>
+          </div>
+          <div class="sidebar__section">
+            <h2 class="sidebar__section-title">Cuenta</h2>
+            <a href="#perfil" class="sidebar__item" data-page="perfil" aria-current="false">
+              <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <span class="sidebar__label">Perfil</span>
+            </a>
+          </div>
+        </nav>
+      `;
+    } else {
+      sidebarNav.innerHTML = `
+        <nav class="sidebar__nav" aria-label="Navegación principal">
+          <div class="sidebar__section">
+            <h2 class="sidebar__section-title">CAPU</h2>
+            <a href="#login" class="sidebar__item" data-page="login" aria-current="false">
+              <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+              <span class="sidebar__label">Iniciar sesión</span>
+            </a>
+            <a href="#register" class="sidebar__item" data-page="register" aria-current="false">
+              <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+              <span class="sidebar__label">Registrarse</span>
+            </a>
+          </div>
+        </nav>
+      `;
+    }
+    // Re-attach click listeners for navigation
+    sidebarNav.querySelectorAll('[data-page]').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        const page = el.dataset.page;
+        navigate(page);
+        closeSidebar();
+      });
+    });
+  }
+}
 
 /* ---------- Sidebar Management ---------- */
 const sidebar = $('#sidebar');
@@ -304,6 +443,61 @@ function updateUserUI(user) {
   $$('.admin-nav-item').forEach(el => el.hidden = !State.isAdmin);
 }
 
+/* ---------- User Dropdown Menu Handlers ---------- */
+function attachUserDropdownHandlers() {
+  const userMenu = $('#user-menu');
+  if (!userMenu) return;
+
+  userMenu.querySelectorAll('[data-action]').forEach(item => {
+    item.replaceWith(item.cloneNode(true));
+  });
+
+  // Profile action
+  $('#user-menu [data-action="profile"]')?.addEventListener('click', () => {
+    modals.close('user-dropdown');
+    navigate('perfil');
+  });
+
+  // Sync action
+  $('#user-menu [data-action="sync"]')?.addEventListener('click', async () => {
+    modals.close('user-dropdown');
+    try {
+      const res = await POST('/api/sync');
+      showToast(res.message || 'Sincronización completada', 'success');
+      loadAgenda();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  });
+
+  // Logout action
+  $('#user-menu [data-action="logout"]')?.addEventListener('click', async () => {
+    modals.close('user-dropdown');
+    if (await confirmAction('¿Cerrar sesión? Tendrás que iniciar sesión de nuevo.', 'Cerrar sesión', false)) {
+      clearAuth();
+      showToast('Sesión cerrada', 'success');
+      navigate('login');
+    }
+  });
+
+  // Disconnect Google action
+  $('#user-menu [data-action="disconnect-google"]')?.addEventListener('click', async () => {
+    modals.close('user-dropdown');
+    if (await confirmAction('¿Desconectar tu cuenta de Google? Perderás la sincronización automática con Classroom.', 'Desconectar Google', true)) {
+      try {
+        await DELETE('/api/usuario/google');
+        showToast('Google desconectado', 'success');
+        loadPerfil();
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    }
+  });
+}
+
+// Attach handlers when DOM is ready
+document.addEventListener('DOMContentLoaded', attachUserDropdownHandlers);
+
 /* ---------- PAGE: AGENDA ---------- */
 async function loadAgenda() {
   await Promise.all([loadCourses(), loadTasks(), loadAgendaStats()]);
@@ -348,6 +542,7 @@ async function loadTasks() {
   const q = new URLSearchParams();
   if ($('#f-curso').value) q.set('curso', $('#f-curso').value);
   if ($('#f-estado').value) q.set('estado', $('#f-estado').value);
+  if ($('#f-source').value) q.set('source', $('#f-source').value);
 
   try {
     const tasks = await GET('/api/tareas?' + q);
@@ -411,9 +606,12 @@ function renderTaskCard(t) {
   const dueDate = new Date(t.fecha_limite);
   const isOverdue = !hecha && dueDate < new Date();
   const isSoon = !hecha && (dueDate - new Date()) < 24 * 36e5;
+  const isCustom = t.source === 'custom';
 
   const dueClass = isOverdue ? 'task-card__due--overdue' : isSoon ? 'task-card__due--soon' : '';
   const dueLabel = hecha ? `Entregada: ${esc(fmtDate.format(new Date(t.fecha_entrega)))}` : `Fecha límite: ${esc(fmtDate.format(dueDate))}`;
+
+  const sourceBadge = isCustom ? `<span class="badge badge--custom task-card__source-badge">Personalizada</span>` : `<span class="badge badge--classroom task-card__source-badge">Classroom</span>`;
 
   return `
     <article class="task-card task-card--${estadoVis}" data-task-id="${t.id_tarea}" role="listitem">
@@ -426,7 +624,10 @@ function renderTaskCard(t) {
               ${esc(t.curso)}
             </div>
           </div>
-          <span class="badge badge--${estadoVis} task-card__badge">${ETIQUETA_ESTADO[estadoVis]}</span>
+          <div style="display: flex; gap: var(--space-2); align-items: center;">
+            <span class="badge badge--${estadoVis} task-card__badge">${ETIQUETA_ESTADO[estadoVis]}</span>
+            ${sourceBadge}
+          </div>
         </div>
         <div class="task-card__meta">
           <span class="task-card__meta-item">
@@ -488,10 +689,12 @@ function renderTaskDetail(t) {
   const body = $('#task-detail-body');
   const btnComplete = $('#task-detail-complete');
   const linkClassroom = $('#task-detail-open-classroom');
+  const btnEdit = $('#task-detail-edit');
 
   const hecha = t.estado === 'entregada';
   const dueDate = new Date(t.fecha_limite);
   const isOverdue = !hecha && dueDate < new Date();
+  const isCustom = t.source === 'custom';
 
   // Title
   $('#task-detail-modal-title').textContent = t.titulo;
@@ -508,11 +711,13 @@ function renderTaskDetail(t) {
   const progressPct = t.avance_pct || 0;
   const ringColor = hecha ? 'var(--color-success)' : isOverdue ? 'var(--color-error)' : 'var(--color-primary)';
 
+  const sourceBadge = isCustom ? `<span class="badge badge--custom" style="margin-left: var(--space-2);">Personalizada</span>` : `<span class="badge badge--classroom" style="margin-left: var(--space-2);">Classroom</span>`;
+
   body.innerHTML = `
     <div class="task-detail">
       <div class="task-detail__header">
         <div class="task-detail__course" style="border-left-color: ${courseColorValue};">
-          <span class="task-detail__course-name">${esc(t.curso)}</span>
+          <span class="task-detail__course-name">${esc(t.curso)}${sourceBadge}</span>
           <span class="${badgeClass}">${ETIQUETA_ESTADO[t.estado_visible]}</span>
         </div>
       </div>
@@ -566,18 +771,26 @@ function renderTaskDetail(t) {
     btnComplete.hidden = false;
   }
 
-  if (t.enlace) {
+  // Classroom link only for classroom tasks
+  if (t.enlace && !isCustom) {
     linkClassroom.hidden = false;
     linkClassroom.href = t.enlace;
   } else {
     linkClassroom.hidden = true;
   }
 
+  // Edit button only for custom tasks
+  if (isCustom && !hecha) {
+    btnEdit.hidden = false;
+  } else {
+    btnEdit.hidden = true;
+  }
+
   // Attach listeners
-  attachTaskDetailListeners(t.id_tarea, hecha);
+  attachTaskDetailListeners(t.id_tarea, hecha, isCustom);
 }
 
-function attachTaskDetailListeners(id, hecha) {
+function attachTaskDetailListeners(id, hecha, isCustom) {
   // Progress slider
   const slider = $('#detail-progress-slider');
   const output = $('#detail-progress-output');
@@ -614,6 +827,222 @@ function attachTaskDetailListeners(id, hecha) {
         showToast(e.message, 'error');
       }
     });
+  }
+
+  // Edit button for custom tasks
+  const btnEdit = $('#task-detail-edit');
+  if (btnEdit && isCustom && !hecha) {
+    btnEdit.replaceWith(btnEdit.cloneNode(true));
+    $('#task-detail-edit').addEventListener('click', () => {
+      modals.close('task-detail-modal');
+      openEditTaskModal(id);
+    });
+  }
+}
+
+/* ---------- CUSTOM TASKS (Crear/Editar) ---------- */
+
+// Open Create Task Modal
+async function openCreateTaskModal() {
+  await loadCreateTaskForm();
+  modals.open('create-task-modal');
+  // Set min date to now
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  $('#create-task-fecha-limite').min = now.toISOString().slice(0, 16);
+}
+
+// Load courses into create task form
+async function loadCreateTaskForm() {
+  try {
+    const cursos = await GET('/api/cursos');
+    const sel = $('#create-task-curso');
+    sel.innerHTML = '<option value="">Sin curso asignado</option>' +
+      cursos.map(c => `<option value="${c.id_curso}">${esc(c.nombre)}</option>`).join('');
+  } catch (e) {
+    console.error('Error loading courses for create task:', e);
+  }
+  // Reset form
+  $('#create-task-form').reset();
+  // Set default priority to media
+  $('#create-task-form input[name="create-task-prioridad"][value="media"]').checked = true;
+}
+
+// Handle create task submit
+async function handleCreateTaskSubmit(e) {
+  e.preventDefault();
+  const form = $('#create-task-form');
+
+  // Validate
+  const titulo = $('#create-task-titulo').value.trim();
+  const fechaLimite = $('#create-task-fecha-limite').value;
+
+  if (!titulo) {
+    showError('create-task-titulo-error', 'El título es obligatorio');
+    return;
+  }
+  if (!fechaLimite) {
+    showError('create-task-fecha-error', 'La fecha límite es obligatoria');
+    return;
+  }
+
+  // Clear errors
+  clearError('create-task-titulo-error');
+  clearError('create-task-fecha-error');
+
+  const idCurso = $('#create-task-curso').value || null;
+  const descripcion = $('#create-task-descripcion').value.trim() || null;
+  const prioridad = form.querySelector('input[name="create-task-prioridad"]:checked').value;
+
+  const btnSubmit = $('#create-task-submit');
+  btnSubmit.disabled = true;
+  btnSubmit.textContent = 'Creando...';
+
+  try {
+    await POST('/api/tareas/custom', {
+      titulo,
+      descripcion,
+      fecha_limite: new Date(fechaLimite).toISOString(),
+      id_curso: idCurso ? Number(idCurso) : undefined,
+      prioridad
+    });
+    showToast('Tarea personalizada creada', 'success');
+    modals.close('create-task-modal');
+    loadAgenda();
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btnSubmit.disabled = false;
+    btnSubmit.innerHTML = `
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Crear tarea
+    `;
+  }
+}
+
+// Open Edit Task Modal
+async function openEditTaskModal(id) {
+  try {
+    const tarea = await GET(`/api/tareas/${id}`);
+    if (!tarea || tarea.source !== 'custom') {
+      showToast('Tarea no encontrada o no es personalizable', 'error');
+      return;
+    }
+    await loadEditTaskForm(tarea);
+    modals.open('edit-task-modal');
+    // Set min date to now
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    $('#edit-task-fecha-limite').min = now.toISOString().slice(0, 16);
+  } catch (e) {
+    showToast(e.message, 'error', 'Error al cargar tarea');
+  }
+}
+
+// Load task data into edit form
+async function loadEditTaskForm(tarea) {
+  try {
+    const cursos = await GET('/api/cursos');
+    const sel = $('#edit-task-curso');
+    sel.innerHTML = '<option value="">Sin curso asignado</option>' +
+      cursos.map(c => `<option value="${c.id_curso}" ${c.id_curso === tarea.id_curso ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('');
+  } catch (e) {
+    console.error('Error loading courses for edit task:', e);
+  }
+
+  $('#edit-task-id').value = tarea.id_tarea;
+  $('#edit-task-titulo').value = tarea.titulo;
+  $('#edit-task-descripcion').value = tarea.descripcion || '';
+  // Format date for datetime-local input
+  if (tarea.fecha_limite) {
+    const date = new Date(tarea.fecha_limite);
+    date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+    $('#edit-task-fecha-limite').value = date.toISOString().slice(0, 16);
+  }
+  // Set priority (default to media if not set)
+  const prioridad = tarea.prioridad || 'media';
+  $(`#edit-task-form input[name="edit-task-prioridad"][value="${prioridad}"]`).checked = true;
+}
+
+// Handle edit task submit
+async function handleEditTaskSubmit(e) {
+  e.preventDefault();
+  const form = $('#edit-task-form');
+
+  // Validate
+  const titulo = $('#edit-task-titulo').value.trim();
+  const fechaLimite = $('#edit-task-fecha-limite').value;
+
+  if (!titulo) {
+    showError('edit-task-titulo-error', 'El título es obligatorio');
+    return;
+  }
+  if (!fechaLimite) {
+    showError('edit-task-fecha-error', 'La fecha límite es obligatoria');
+    return;
+  }
+
+  // Clear errors
+  clearError('edit-task-titulo-error');
+  clearError('edit-task-fecha-error');
+
+  const id = Number($('#edit-task-id').value);
+  const idCurso = $('#edit-task-curso').value || null;
+  const descripcion = $('#edit-task-descripcion').value.trim() || null;
+  const prioridad = form.querySelector('input[name="edit-task-prioridad"]:checked').value;
+
+  const btnSubmit = $('#edit-task-submit');
+  btnSubmit.disabled = true;
+  btnSubmit.textContent = 'Guardando...';
+
+  try {
+    await PATCH(`/api/tareas/custom/${id}`, {
+      titulo,
+      descripcion,
+      fecha_limite: new Date(fechaLimite).toISOString(),
+      id_curso: idCurso ? Number(idCurso) : undefined,
+      prioridad
+    });
+    showToast('Tarea actualizada', 'success');
+    modals.close('edit-task-modal');
+    loadAgenda();
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btnSubmit.disabled = false;
+    btnSubmit.textContent = 'Guardar cambios';
+  }
+}
+
+// Handle delete custom task
+async function handleDeleteTaskCustom(id) {
+  if (await confirmAction('¿Eliminar esta tarea personalizada? Esta acción no se puede deshacer.', 'Eliminar tarea personalizada', true)) {
+    try {
+      await DELETE(`/api/tareas/custom/${id}`);
+      showToast('Tarea eliminada', 'success');
+      modals.close('edit-task-modal');
+      loadAgenda();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  }
+}
+
+// Helper functions for form validation
+function showError(id, message) {
+  const el = $(`#${id}`);
+  if (el) {
+    el.textContent = message;
+    el.hidden = false;
+    el.previousElementSibling?.classList.add('form-input--error');
+  }
+}
+
+function clearError(id) {
+  const el = $(`#${id}`);
+  if (el) {
+    el.hidden = true;
+    el.previousElementSibling?.classList.remove('form-input--error');
   }
 }
 
@@ -751,11 +1180,10 @@ function attachPerfilListeners() {
     $('#btn-cerrar-sesion').addEventListener('click', async () => {
       if (await confirmAction('¿Cerrar sesión? Tendrás que iniciar sesión de nuevo.', 'Cerrar sesión', false)) {
         // Limpiar estado local
-        localStorage.removeItem('capu_token'); // si se usa
-        localStorage.removeItem('capu_user'); // si se usa
+        clearAuth();
         showToast('Sesión cerrada', 'success');
-        // Redirigir a login (página principal)
-        window.location.href = '/';
+        // Redirigir a login
+        navigate('login');
       }
     });
   }
@@ -788,12 +1216,311 @@ function attachPerfilListeners() {
   }
 }
 
+/* ============================================================
+   AUTH PAGES (Register, Login, Forgot Password, Reset Password)
+   ============================================================ */
+
+/* ----- PAGE: REGISTER ----- */
+async function loadRegister() {
+  renderRegister();
+  attachRegisterListeners();
+}
+
+function renderRegister() {
+  // Clear any previous error states
+  const form = $('#register-form');
+  if (form) form.reset();
+}
+
+function attachRegisterListeners() {
+  const form = $('#register-form');
+  if (!form) return;
+
+  form.replaceWith(form.cloneNode(true));
+  const newForm = $('#register-form');
+
+  newForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const nombre = $('#register-nombre').value.trim();
+    const correo = $('#register-correo').value.trim().toLowerCase();
+    const password = $('#register-password').value;
+    const passwordConfirm = $('#register-password-confirm').value;
+    const terminos = $('#register-terminos').checked;
+
+    // Clear previous errors
+    clearError('register-nombre-error');
+    clearError('register-correo-error');
+    clearError('register-password-error');
+    clearError('register-password-confirm-error');
+    clearError('register-terminos-error');
+
+    // Validate
+    let hasError = false;
+
+    if (!nombre) {
+      showError('register-nombre-error', 'El nombre es obligatorio');
+      hasError = true;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!correo) {
+      showError('register-correo-error', 'El email es obligatorio');
+      hasError = true;
+    } else if (!emailRegex.test(correo)) {
+      showError('register-correo-error', 'Email inválido');
+      hasError = true;
+    }
+
+    if (!password) {
+      showError('register-password-error', 'La contraseña es obligatoria');
+      hasError = true;
+    } else if (password.length < 8) {
+      showError('register-password-error', 'La contraseña debe tener al menos 8 caracteres');
+      hasError = true;
+    }
+
+    if (password !== passwordConfirm) {
+      showError('register-password-confirm-error', 'Las contraseñas no coinciden');
+      hasError = true;
+    }
+
+    if (!terminos) {
+      showError('register-terminos-error', 'Debes aceptar los términos y condiciones');
+      hasError = true;
+    }
+
+    if (hasError) return;
+
+    const btnSubmit = $('#register-submit');
+    btnSubmit.disabled = true;
+    btnSubmit.classList.add('btn--loading');
+
+    try {
+      const res = await POST('/api/auth/registro', { nombre, correo, password });
+      setAuthToken(res.token);
+      showToast(res.mensaje, 'success');
+      // Navigate to agenda
+      navigate('agenda');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      btnSubmit.disabled = false;
+      btnSubmit.classList.remove('btn--loading');
+    }
+  });
+}
+
+/* ----- PAGE: LOGIN ----- */
+async function loadLogin() {
+  renderLogin();
+  attachLoginListeners();
+}
+
+function renderLogin() {
+  const form = $('#login-form');
+  if (form) form.reset();
+}
+
+function attachLoginListeners() {
+  const form = $('#login-form');
+  if (!form) return;
+
+  form.replaceWith(form.cloneNode(true));
+  const newForm = $('#login-form');
+
+  newForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const correo = $('#login-correo').value.trim().toLowerCase();
+    const password = $('#login-password').value;
+
+    // Clear previous errors
+    clearError('login-correo-error');
+    clearError('login-password-error');
+
+    // Validate
+    let hasError = false;
+
+    if (!correo) {
+      showError('login-correo-error', 'El email es obligatorio');
+      hasError = true;
+    }
+
+    if (!password) {
+      showError('login-password-error', 'La contraseña es obligatoria');
+      hasError = true;
+    }
+
+    if (hasError) return;
+
+    const btnSubmit = $('#login-submit');
+    btnSubmit.disabled = true;
+    btnSubmit.classList.add('btn--loading');
+
+    try {
+      const res = await POST('/api/auth/login', { correo, password });
+      setAuthToken(res.token);
+      showToast('Sesión iniciada correctamente', 'success');
+      // Redirect based on role
+      if (res.usuario.rol === 'admin') {
+        navigate('admin-usuarios');
+      } else {
+        navigate('agenda');
+      }
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      btnSubmit.disabled = false;
+      btnSubmit.classList.remove('btn--loading');
+    }
+  });
+}
+
+/* ----- PAGE: FORGOT PASSWORD ----- */
+async function loadForgotPassword() {
+  renderForgotPassword();
+  attachForgotPasswordListeners();
+}
+
+function renderForgotPassword() {
+  const form = $('#forgot-password-form');
+  if (form) form.reset();
+}
+
+function attachForgotPasswordListeners() {
+  const form = $('#forgot-password-form');
+  if (!form) return;
+
+  form.replaceWith(form.cloneNode(true));
+  const newForm = $('#forgot-password-form');
+
+  newForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const correo = $('#forgot-correo').value.trim().toLowerCase();
+
+    // Clear previous errors
+    clearError('forgot-correo-error');
+
+    // Validate
+    if (!correo) {
+      showError('forgot-correo-error', 'El email es obligatorio');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(correo)) {
+      showError('forgot-correo-error', 'Email inválido');
+      return;
+    }
+
+    const btnSubmit = $('#forgot-password-submit');
+    btnSubmit.disabled = true;
+    btnSubmit.classList.add('btn--loading');
+
+    try {
+      const res = await POST('/api/auth/olvide-password', { correo });
+      showToast(res.mensaje, 'success');
+      // Navigate to login after a delay
+      setTimeout(() => navigate('login'), 2000);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      btnSubmit.disabled = false;
+      btnSubmit.classList.remove('btn--loading');
+    }
+  });
+}
+
+/* ----- PAGE: RESET PASSWORD ----- */
+async function loadResetPassword() {
+  renderResetPassword();
+  attachResetPasswordListeners();
+}
+
+function renderResetPassword() {
+  const form = $('#reset-password-form');
+  if (form) form.reset();
+
+  // Extract token from URL hash
+  const hash = location.hash.slice(1);
+  const params = new URLSearchParams(hash.split('?')[1] || '');
+  const token = params.get('token') || params.get('t');
+
+  if (token) {
+    $('#reset-password-token').value = token;
+  } else {
+    showToast('Token de restablecimiento requerido', 'error');
+    setTimeout(() => navigate('forgot-password'), 2000);
+  }
+}
+
+function attachResetPasswordListeners() {
+  const form = $('#reset-password-form');
+  if (!form) return;
+
+  form.replaceWith(form.cloneNode(true));
+  const newForm = $('#reset-password-form');
+
+  newForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const token = $('#reset-password-token').value;
+    const password = $('#reset-password').value;
+    const passwordConfirm = $('#reset-password-confirm').value;
+
+    // Clear previous errors
+    clearError('reset-password-error');
+    clearError('reset-password-confirm-error');
+
+    // Validate
+    let hasError = false;
+
+    if (!token) {
+      showToast('Token de restablecimiento requerido', 'error');
+      return;
+    }
+
+    if (!password) {
+      showError('reset-password-error', 'La nueva contraseña es obligatoria');
+      hasError = true;
+    } else if (password.length < 8) {
+      showError('reset-password-error', 'La contraseña debe tener al menos 8 caracteres');
+      hasError = true;
+    }
+
+    if (password !== passwordConfirm) {
+      showError('reset-password-confirm-error', 'Las contraseñas no coinciden');
+      hasError = true;
+    }
+
+    if (hasError) return;
+
+    const btnSubmit = $('#reset-password-submit');
+    btnSubmit.disabled = true;
+    btnSubmit.classList.add('btn--loading');
+
+    try {
+      const res = await POST('/api/auth/reset-password', { token, password });
+      showToast(res.mensaje, 'success');
+      // Navigate to login after a delay
+      setTimeout(() => navigate('login'), 2000);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      btnSubmit.disabled = false;
+      btnSubmit.classList.remove('btn--loading');
+    }
+  });
+}
+
 /* ---------- Header Tokens Update ---------- */
 async function updateHeaderTokens() {
   try {
     const t = await GET('/api/tokens');
-    $('#saldo').textContent = t.saldo_tokens;
-    $('#racha').textContent = t.racha_dias;
+    $('#saldo-tokens').textContent = t.saldo_tokens;
+    $('#racha-dias').textContent = t.racha_dias;
   } catch { /* silencioso */ }
 }
 
@@ -1302,13 +2029,31 @@ function refreshCurrentPage() {
 async function initApp() {
   initTheme();
 
-  // Check auth state
-  try {
-    const auth = await GET('/api/auth/google/estado');
-    updateUserUI({ ...auth, googleConnected: auth.conectado });
-  } catch {
-    updateUserUI({ nombre: 'Estudiante Demo', correo: 'demo@capu.local', rol: 'estudiante', googleConnected: false });
+  // Check auth state - first try JWT token from localStorage
+  const token = getAuthToken();
+  let user = null;
+
+  if (token) {
+    try {
+      const perfil = await GET('/api/usuario/perfil');
+      user = { ...perfil, googleConnected: perfil.googleConectado || false };
+    } catch (e) {
+      // Token invalid or expired, clear it
+      clearAuth();
+    }
   }
+
+  // If no valid JWT, fall back to Google OAuth check (for backward compatibility)
+  if (!user) {
+    try {
+      const auth = await GET('/api/auth/google/estado');
+      user = { ...auth, googleConnected: auth.conectado };
+    } catch {
+      user = { nombre: 'Estudiante Demo', correo: 'demo@capu.local', rol: 'estudiante', googleConnected: false };
+    }
+  }
+
+  updateUserUI(user);
 
   // Initial navigation
   const initialPage = location.hash.slice(1) || 'agenda';
@@ -1333,6 +2078,42 @@ if (document.readyState === 'loading') {
 } else {
   initApp();
 }
+
+// Add event listeners for custom tasks
+document.addEventListener('DOMContentLoaded', () => {
+  // Create task button
+  const btnCreateTask = $('#btn-create-task');
+  if (btnCreateTask) {
+    btnCreateTask.addEventListener('click', openCreateTaskModal);
+  }
+
+  // Source filter change
+  const fSource = $('#f-source');
+  if (fSource) {
+    fSource.addEventListener('change', loadTasks);
+  }
+
+  // Create task form submit
+  const createTaskForm = $('#create-task-form');
+  if (createTaskForm) {
+    createTaskForm.addEventListener('submit', handleCreateTaskSubmit);
+  }
+
+  // Edit task form submit
+  const editTaskForm = $('#edit-task-form');
+  if (editTaskForm) {
+    editTaskForm.addEventListener('submit', handleEditTaskSubmit);
+  }
+
+  // Edit task delete button
+  const editTaskDelete = $('#edit-task-delete');
+  if (editTaskDelete) {
+    editTaskDelete.addEventListener('click', () => {
+      const id = Number($('#edit-task-id').value);
+      if (id) handleDeleteTaskCustom(id);
+    });
+  }
+});
 
 // Handle visibility change to refresh data
 document.addEventListener('visibilitychange', () => {

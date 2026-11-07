@@ -36,6 +36,12 @@
     </div>
 
     <div class="header__actions">
+      <!-- Public Navigation (Login/Register) - shown when NOT authenticated -->
+      <div class="public-only" style="display: flex; align-items: center; gap: var(--space-2);">
+        <a href="#login" class="btn btn--ghost btn--sm" data-page="login">Iniciar sesión</a>
+        <a href="#register" class="btn btn--primary btn--sm" data-page="register">Registrarse</a>
+      </div>
+
       <!-- Theme Toggle -->
       <button id="theme-toggle" class="btn btn--ghost btn--icon" aria-label="Cambiar tema" aria-pressed="false" title="Cambiar tema">
         <svg id="theme-icon-light" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
@@ -47,8 +53,8 @@
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
 
-      <!-- User Menu Dropdown -->
-      <div class="dropdown" id="user-dropdown">
+      <!-- User Menu Dropdown - shown when authenticated -->
+      <div class="dropdown auth-only" id="user-dropdown" style="display: none;">
         <button id="user-menu-trigger" class="btn btn--ghost header__user" aria-haspopup="true" aria-expanded="false" aria-label="Menú de usuario">
           <div id="user-avatar" class="avatar" role="img" aria-label="Avatar de usuario"></div>
           <span id="user-name" class="sidebar__user-name" style="display:none"></span>
@@ -61,10 +67,14 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             Perfil
           </button>
-          <a class="dropdown__item" href="/api/auth/google/iniciar" id="btn-google" role="menuitem" hidden>
+          <a class="dropdown__item" href="/api/auth/google/iniciar" id="btn-google-connect-header" role="menuitem" hidden>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/></svg>
             Conectar con Google
           </a>
+          <button class="dropdown__item" id="btn-google-disconnect-header" role="menuitem" hidden data-action="disconnect-google">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            Desconectar Google
+          </button>
           <button class="dropdown__item" role="menuitem" data-action="sync">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
             Sincronizar ahora
@@ -81,7 +91,7 @@
 
   <!-- Sidebar Navigation -->
   <nav id="sidebar" class="sidebar" role="navigation" aria-label="Navegación principal">
-    <div class="sidebar__nav">
+    <div id="sidebar-nav" class="sidebar__nav">
       <div class="sidebar__section">
         <h2 class="sidebar__section-title">Principal</h2>
         <a href="#agenda" class="sidebar__item" data-page="agenda" aria-current="page" role="menuitem">
@@ -138,13 +148,21 @@
     </div>
   </nav>
 
-  <!-- Bottom Navigation (Mobile) -->
-  <nav class="bottom-nav" id="bottom-nav" role="navigation" aria-label="Navegación principal móvil">
+  <!-- Bottom Navigation (Mobile) - shown when authenticated -->
+  <nav class="bottom-nav auth-only" id="bottom-nav" role="navigation" aria-label="Navegación principal móvil" style="display: none;">
     <ul class="bottom-nav__list">
       <li><a href="#agenda" class="bottom-nav__item" data-page="agenda" aria-current="page" role="menuitem"><svg class="bottom-nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Agenda</span></a></li>
       <li><a href="#tokens" class="bottom-nav__item" data-page="tokens" role="menuitem"><svg class="bottom-nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><span>Tokens</span></a></li>
       <li><a href="#resumen" class="bottom-nav__item" data-page="resumen" role="menuitem"><svg class="bottom-nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span>Resumen</span></a></li>
       <li><a href="#perfil" class="bottom-nav__item" data-page="perfil" role="menuitem"><svg class="bottom-nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a></li>
+    </ul>
+  </nav>
+
+  <!-- Bottom Navigation (Mobile) - shown when NOT authenticated -->
+  <nav class="bottom-nav public-only" id="bottom-nav-public" role="navigation" aria-label="Navegación principal móvil">
+    <ul class="bottom-nav__list">
+      <li><a href="#login" class="bottom-nav__item" data-page="login" role="menuitem"><svg class="bottom-nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg><span>Entrar</span></a></li>
+      <li><a href="#register" class="bottom-nav__item" data-page="register" role="menuitem"><svg class="bottom-nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg><span>Registrarse</span></a></li>
     </ul>
   </nav>
 
@@ -161,6 +179,10 @@
           <button id="btn-sync" class="btn btn--primary" aria-label="Sincronizar con Google Classroom">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
             <span>Sincronizar</span>
+          </button>
+          <button id="btn-create-task" class="btn btn--secondary" aria-label="Crear nueva tarea personalizada">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span>Nueva tarea</span>
           </button>
         </div>
       </header>
@@ -206,6 +228,14 @@
               <option value="en_progreso">En progreso</option>
               <option value="vencida">Vencida</option>
               <option value="entregada">Entregada</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <span class="filter-label" for="f-source">Origen</span>
+            <select id="f-source" class="filter-select" aria-label="Filtrar por origen">
+              <option value="">Todos</option>
+              <option value="classroom">Classroom</option>
+              <option value="custom">Personalizadas</option>
             </select>
           </div>
         </div>
@@ -316,6 +346,199 @@
           </div>
         </article>
       </section>
+    </section>
+
+    <!-- Page: Register (Público) -->
+    <section id="page-register" class="page auth-page" hidden role="region" aria-label="Registro de usuario">
+      <div class="auth-page__card card">
+        <header class="auth-page__header">
+          <div class="header__brand auth-page__logo" aria-label="CAPU - Inicio">
+            <svg class="header__logo" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+              <rect width="100" height="100" rx="22" fill="#C4571A"/>
+              <path d="M24 44 Q38 72 50 63 L78 26" stroke="#fff" stroke-width="9" fill="none" stroke-linecap="round"/>
+              <circle cx="40" cy="55" r="2.6" fill="#fff"/>
+              <circle cx="50" cy="55" r="2.6" fill="#fff"/>
+            </svg>
+          </div>
+          <h1 class="auth-page__title">Crear cuenta</h1>
+          <p class="auth-page__subtitle">Únete a CAPU y gestiona tus tareas con gamificación</p>
+        </header>
+
+        <form id="register-form" class="auth-page__form" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="register-nombre">Nombre <span class="required" aria-hidden="true">*</span></label>
+            <input type="text" id="register-nombre" class="form-input" placeholder="Tu nombre completo" required maxlength="100" autocomplete="name">
+            <p class="form-error" id="register-nombre-error" hidden></p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="register-correo">Correo electrónico <span class="required" aria-hidden="true">*</span></label>
+            <input type="email" id="register-correo" class="form-input" placeholder="tu@email.com" required maxlength="255" autocomplete="email">
+            <p class="form-error" id="register-correo-error" hidden></p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="register-password">Contraseña <span class="required" aria-hidden="true">*</span></label>
+            <input type="password" id="register-password" class="form-input" placeholder="Mínimo 8 caracteres" required minlength="8" autocomplete="new-password">
+            <p class="form-error" id="register-password-error" hidden></p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="register-password-confirm">Confirmar contraseña <span class="required" aria-hidden="true">*</span></label>
+            <input type="password" id="register-password-confirm" class="form-input" placeholder="Repite tu contraseña" required minlength="8" autocomplete="new-password">
+            <p class="form-error" id="register-password-confirm-error" hidden></p>
+          </div>
+
+          <div class="form-group form-check">
+            <input type="checkbox" class="form-check-input" id="register-terminos" name="terminos" required>
+            <label class="form-check-label" for="register-terminos">
+              Acepto los <a href="#" data-action="terms">términos y condiciones</a> y la <a href="#" data-action="privacy">política de privacidad</a>
+            </label>
+            <p class="form-error" id="register-terminos-error" hidden></p>
+          </div>
+
+          <button type="submit" id="register-submit" class="btn btn--primary btn--lg btn--full">
+            <span class="btn__text">Crear cuenta</span>
+            <span class="btn__loading" hidden><svg class="spinner" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="31.4 31.4" stroke-linecap="round"/></svg></span>
+          </button>
+        </form>
+
+        <footer class="auth-page__footer">
+          <p>¿Ya tienes cuenta? <a href="#login" class="auth-page__link" data-page="login">Inicia sesión</a></p>
+          <p style="margin-top: var(--space-3);">O continúa con <a href="/api/auth/google/iniciar" class="auth-page__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="vertical-align: middle; margin-right: var(--space-2);"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/></svg> Google</a></p>
+        </footer>
+      </div>
+    </section>
+
+    <!-- Page: Login (Público) -->
+    <section id="page-login" class="page auth-page" hidden role="region" aria-label="Iniciar sesión">
+      <div class="auth-page__card card">
+        <header class="auth-page__header">
+          <div class="header__brand auth-page__logo" aria-label="CAPU - Inicio">
+            <svg class="header__logo" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+              <rect width="100" height="100" rx="22" fill="#C4571A"/>
+              <path d="M24 44 Q38 72 50 63 L78 26" stroke="#fff" stroke-width="9" fill="none" stroke-linecap="round"/>
+              <circle cx="40" cy="55" r="2.6" fill="#fff"/>
+              <circle cx="50" cy="55" r="2.6" fill="#fff"/>
+            </svg>
+          </div>
+          <h1 class="auth-page__title">Iniciar sesión</h1>
+          <p class="auth-page__subtitle">Accede a tu cuenta CAPU</p>
+        </header>
+
+        <form id="login-form" class="auth-page__form" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="login-correo">Correo electrónico <span class="required" aria-hidden="true">*</span></label>
+            <input type="email" id="login-correo" class="form-input" placeholder="tu@email.com" required maxlength="255" autocomplete="email">
+            <p class="form-error" id="login-correo-error" hidden></p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="login-password">Contraseña <span class="required" aria-hidden="true">*</span></label>
+            <input type="password" id="login-password" class="form-input" placeholder="Tu contraseña" required autocomplete="current-password">
+            <p class="form-error" id="login-password-error" hidden></p>
+          </div>
+
+          <button type="submit" id="login-submit" class="btn btn--primary btn--lg btn--full">
+            <span class="btn__text">Iniciar sesión</span>
+            <span class="btn__loading" hidden><svg class="spinner" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="31.4 31.4" stroke-linecap="round"/></svg></span>
+          </button>
+        </form>
+
+        <div class="auth-page__divider">
+          <span>O continúa con</span>
+        </div>
+
+        <a href="/api/auth/google/iniciar" class="btn btn--secondary btn--full btn--google" role="button">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/></svg>
+          Continuar con Google
+        </a>
+
+        <footer class="auth-page__footer">
+          <p><a href="#forgot-password" class="auth-page__link" data-page="forgot-password">¿Olvidaste tu contraseña?</a></p>
+          <p style="margin-top: var(--space-3);">¿No tienes cuenta? <a href="#register" class="auth-page__link" data-page="register">Regístrate</a></p>
+        </footer>
+      </div>
+    </section>
+
+    <!-- Page: Forgot Password (Público) -->
+    <section id="page-forgot-password" class="page auth-page" hidden role="region" aria-label="Recuperar contraseña">
+      <div class="auth-page__card card">
+        <header class="auth-page__header">
+          <div class="header__brand auth-page__logo" aria-label="CAPU - Inicio">
+            <svg class="header__logo" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+              <rect width="100" height="100" rx="22" fill="#C4571A"/>
+              <path d="M24 44 Q38 72 50 63 L78 26" stroke="#fff" stroke-width="9" fill="none" stroke-linecap="round"/>
+              <circle cx="40" cy="55" r="2.6" fill="#fff"/>
+              <circle cx="50" cy="55" r="2.6" fill="#fff"/>
+            </svg>
+          </div>
+          <h1 class="auth-page__title">Recuperar contraseña</h1>
+          <p class="auth-page__subtitle">Te enviaremos un enlace para restablecer tu contraseña</p>
+        </header>
+
+        <form id="forgot-password-form" class="auth-page__form" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="forgot-correo">Correo electrónico <span class="required" aria-hidden="true">*</span></label>
+            <input type="email" id="forgot-correo" class="form-input" placeholder="tu@email.com" required maxlength="255" autocomplete="email">
+            <p class="form-error" id="forgot-correo-error" hidden></p>
+          </div>
+
+          <p class="form-help" style="margin-bottom: var(--space-4);">Si el email existe en nuestra base de datos, recibirás un enlace para restablecer tu contraseña.</p>
+
+          <button type="submit" id="forgot-password-submit" class="btn btn--primary btn--lg btn--full">
+            <span class="btn__text">Enviar instrucciones</span>
+            <span class="btn__loading" hidden><svg class="spinner" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="31.4 31.4" stroke-linecap="round"/></svg></span>
+          </button>
+        </form>
+
+        <footer class="auth-page__footer">
+          <p><a href="#login" class="auth-page__link" data-page="login">Volver a iniciar sesión</a></p>
+        </footer>
+      </div>
+    </section>
+
+    <!-- Page: Reset Password (Público) -->
+    <section id="page-reset-password" class="page auth-page" hidden role="region" aria-label="Restablecer contraseña">
+      <div class="auth-page__card card">
+        <header class="auth-page__header">
+          <div class="header__brand auth-page__logo" aria-label="CAPU - Inicio">
+            <svg class="header__logo" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+              <rect width="100" height="100" rx="22" fill="#C4571A"/>
+              <path d="M24 44 Q38 72 50 63 L78 26" stroke="#fff" stroke-width="9" fill="none" stroke-linecap="round"/>
+              <circle cx="40" cy="55" r="2.6" fill="#fff"/>
+              <circle cx="50" cy="55" r="2.6" fill="#fff"/>
+            </svg>
+          </div>
+          <h1 class="auth-page__title">Restablecer contraseña</h1>
+          <p class="auth-page__subtitle">Introduce tu nueva contraseña</p>
+        </header>
+
+        <form id="reset-password-form" class="auth-page__form" novalidate>
+          <input type="hidden" id="reset-password-token" name="token">
+
+          <div class="form-group">
+            <label class="form-label" for="reset-password">Nueva contraseña <span class="required" aria-hidden="true">*</span></label>
+            <input type="password" id="reset-password" class="form-input" placeholder="Mínimo 8 caracteres" required minlength="8" autocomplete="new-password">
+            <p class="form-error" id="reset-password-error" hidden></p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="reset-password-confirm">Confirmar nueva contraseña <span class="required" aria-hidden="true">*</span></label>
+            <input type="password" id="reset-password-confirm" class="form-input" placeholder="Repite tu nueva contraseña" required minlength="8" autocomplete="new-password">
+            <p class="form-error" id="reset-password-confirm-error" hidden></p>
+          </div>
+
+          <button type="submit" id="reset-password-submit" class="btn btn--primary btn--lg btn--full">
+            <span class="btn__text">Restablecer contraseña</span>
+            <span class="btn__loading" hidden><svg class="spinner" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="31.4 31.4" stroke-linecap="round"/></svg></span>
+          </button>
+        </form>
+
+        <footer class="auth-page__footer">
+          <p><a href="#login" class="auth-page__link" data-page="login">Volver a iniciar sesión</a></p>
+        </footer>
+      </div>
     </section>
 
     <!-- Page: Perfil -->
@@ -629,6 +852,10 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           Abrir en Classroom
         </a>
+        <button type="button" class="btn btn--secondary" id="task-detail-edit" hidden>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Editar
+        </button>
       </footer>
     </div>
   </div>
@@ -684,6 +911,121 @@
       <footer class="modal__footer">
         <button type="button" class="btn btn--secondary" data-close-modal>Cancelar</button>
         <button type="button" class="btn btn--danger" id="confirm-modal-confirm">Confirmar</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Create Task Modal -->
+  <div id="create-task-modal" class="modal-backdrop" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="create-task-modal-title">
+    <div class="modal modal--lg">
+      <header class="modal__header">
+        <h2 id="create-task-modal-title" class="modal__title">Nueva tarea personalizada</h2>
+        <button class="modal__close" aria-label="Cerrar" data-close-modal>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </header>
+      <form id="create-task-form" class="modal__body" novalidate>
+        <div class="form-group">
+          <label class="form-label" for="create-task-titulo">Título <span class="required" aria-hidden="true">*</span></label>
+          <input type="text" id="create-task-titulo" class="form-input" placeholder="Ej: Estudiar para examen de matemáticas" required maxlength="200">
+          <p class="form-error" id="create-task-titulo-error" hidden></p>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="create-task-descripcion">Descripción</label>
+          <textarea id="create-task-descripcion" class="form-input" rows="3" placeholder="Detalles opcionales..." maxlength="1000"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="create-task-fecha-limite">Fecha límite <span class="required" aria-hidden="true">*</span></label>
+          <input type="datetime-local" id="create-task-fecha-limite" class="form-input" required>
+          <p class="form-error" id="create-task-fecha-error" hidden></p>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="create-task-curso">Curso (opcional)</label>
+          <select id="create-task-curso" class="form-select">
+            <option value="">Sin curso asignado</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Prioridad</label>
+          <div class="form-check-group" style="display: flex; gap: var(--space-4); flex-wrap: wrap;">
+            <label class="form-check">
+              <input type="radio" name="create-task-prioridad" value="baja" class="form-check-input">
+              <span class="form-check-label">Baja</span>
+            </label>
+            <label class="form-check">
+              <input type="radio" name="create-task-prioridad" value="media" class="form-check-input" checked>
+              <span class="form-check-label">Media</span>
+            </label>
+            <label class="form-check">
+              <input type="radio" name="create-task-prioridad" value="alta" class="form-check-input">
+              <span class="form-check-label">Alta</span>
+            </label>
+          </div>
+        </div>
+      </form>
+      <footer class="modal__footer">
+        <button type="button" class="btn btn--secondary" data-close-modal>Cancelar</button>
+        <button type="submit" form="create-task-form" class="btn btn--primary" id="create-task-submit">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Crear tarea
+        </button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Edit Task Modal -->
+  <div id="edit-task-modal" class="modal-backdrop" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="edit-task-modal-title">
+    <div class="modal modal--lg">
+      <header class="modal__header">
+        <h2 id="edit-task-modal-title" class="modal__title">Editar tarea personalizada</h2>
+        <button class="modal__close" aria-label="Cerrar" data-close-modal>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </header>
+      <form id="edit-task-form" class="modal__body" novalidate>
+        <input type="hidden" id="edit-task-id">
+        <div class="form-group">
+          <label class="form-label" for="edit-task-titulo">Título <span class="required" aria-hidden="true">*</span></label>
+          <input type="text" id="edit-task-titulo" class="form-input" placeholder="Ej: Estudiar para examen de matemáticas" required maxlength="200">
+          <p class="form-error" id="edit-task-titulo-error" hidden></p>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-task-descripcion">Descripción</label>
+          <textarea id="edit-task-descripcion" class="form-input" rows="3" placeholder="Detalles opcionales..." maxlength="1000"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-task-fecha-limite">Fecha límite <span class="required" aria-hidden="true">*</span></label>
+          <input type="datetime-local" id="edit-task-fecha-limite" class="form-input" required>
+          <p class="form-error" id="edit-task-fecha-error" hidden></p>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-task-curso">Curso (opcional)</label>
+          <select id="edit-task-curso" class="form-select">
+            <option value="">Sin curso asignado</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Prioridad</label>
+          <div class="form-check-group" style="display: flex; gap: var(--space-4); flex-wrap: wrap;">
+            <label class="form-check">
+              <input type="radio" name="edit-task-prioridad" value="baja" class="form-check-input">
+              <span class="form-check-label">Baja</span>
+            </label>
+            <label class="form-check">
+              <input type="radio" name="edit-task-prioridad" value="media" class="form-check-input" checked>
+              <span class="form-check-label">Media</span>
+            </label>
+            <label class="form-check">
+              <input type="radio" name="edit-task-prioridad" value="alta" class="form-check-input">
+              <span class="form-check-label">Alta</span>
+            </label>
+          </div>
+        </div>
+      </form>
+      <footer class="modal__footer">
+        <button type="button" class="btn btn--secondary" data-close-modal>Cancelar</button>
+        <button type="submit" form="edit-task-form" class="btn btn--primary" id="edit-task-submit">Guardar cambios</button>
+        <button type="button" class="btn btn--danger" id="edit-task-delete">Eliminar</button>
       </footer>
     </div>
   </div>

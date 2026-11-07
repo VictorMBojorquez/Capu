@@ -9,14 +9,17 @@
     "seed": "node backend/src/seed.js",
     "test": "node --test --test-reporter=spec \"tests/*.test.js\""
   },
-  "engines": { "node": ">=22.5" },
+  "engines": {
+    "node": ">=22.5"
+  },
   "license": "UNLICENSED",
   "dependencies": {
-    "express": "^4.21.2",
     "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^9.0.2",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
     "express-rate-limit": "^7.4.1",
-    "uuid": "^10.0.0",
-    "dotenv": "^16.4.5"
+    "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^10.3.1",
+    "uuid": "^10.0.0"
   }
 }

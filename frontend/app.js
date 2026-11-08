@@ -14,6 +14,10 @@ const fmtDate = new Intl.DateTimeFormat('es-MX', {
 const fmtDateShort = new Intl.DateTimeFormat('es-MX', {
   day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Tijuana'
 });
+const fmtDateTime = new Intl.DateTimeFormat('es-MX', {
+  day: '2-digit', month: '2-digit', year: 'numeric',
+  hour: '2-digit', minute: '2-digit', timeZone: 'America/Tijuana'
+});
 const fmtRelative = (dateStr) => {
   const diff = (new Date(dateStr).getTime() - Date.now()) / 36e5; // horas
   if (diff < -24) return `hace ${Math.round(-diff / 24)}d`;
@@ -155,7 +159,7 @@ function confirmAction(message, title = 'Confirmar acción', danger = true) {
     const onConfirm = () => cleanup(true);
     const onCancel = () => cleanup(false);
     const confirmBtn = $('#confirm-modal-confirm');
-    const cancelBtn = $('#confirm-modal-confirm').parentElement.querySelector('.btn--secondary');
+    const cancelBtn = $('#confirm-modal-cancel');
     confirmBtn.addEventListener('click', onConfirm, { once: true });
     cancelBtn.addEventListener('click', onCancel, { once: true });
   });
@@ -303,99 +307,7 @@ function updateNavigationVisibility(isAuthenticated) {
   if (bottomNavPublic) {
     bottomNavPublic.style.display = isAuthenticated ? 'none' : 'block';
   }
-
-  // Update sidebar - show/hide based on auth
-  const sidebarNav = $('#sidebar-nav');
-  if (sidebarNav) {
-    if (isAuthenticated) {
-      sidebarNav.innerHTML = `
-        <nav class="sidebar__nav" aria-label="Navegación principal">
-          <div class="sidebar__section">
-            <h2 class="sidebar__section-title">Principal</h2>
-            <a href="#agenda" class="sidebar__item" data-page="agenda" aria-current="false">
-              <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
-              <span class="sidebar__label">Agenda</span>
-            </a>
-            <a href="#tokens" class="sidebar__item" data-page="tokens" aria-current="false">
-              <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-              <span class="sidebar__label">Tokens</span>
-            </a>
-            <a href="#resumen" class="sidebar__item" data-page="resumen" aria-current="false">
-              <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
-              <span class="sidebar__label">Resumen</span>
-            </a>
-            <a href="#calendario" class="sidebar__item" data-page="calendario" aria-current="false">
-              <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
-              <span class="sidebar__label">Calendario</span>
-            </a>
-            <a href="#notificaciones" class="sidebar__item" data-page="notificaciones" aria-current="false">
-              <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-              <span class="sidebar__label">Notificaciones</span>
-            </a>
-          </div>
-          <div class="sidebar__section">
-            <h2 class="sidebar__section-title">Cuenta</h2>
-            <a href="#perfil" class="sidebar__item" data-page="perfil" aria-current="false">
-              <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              <span class="sidebar__label">Perfil</span>
-            </a>
-          </div>
-        </nav>
-      `;
-    } else {
-      sidebarNav.innerHTML = `
-        <nav class="sidebar__nav" aria-label="Navegación principal">
-          <div class="sidebar__section">
-            <h2 class="sidebar__section-title">CAPU</h2>
-            <a href="#login" class="sidebar__item" data-page="login" aria-current="false">
-              <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-              <span class="sidebar__label">Iniciar sesión</span>
-            </a>
-            <a href="#register" class="sidebar__item" data-page="register" aria-current="false">
-              <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-              <span class="sidebar__label">Registrarse</span>
-            </a>
-          </div>
-        </nav>
-      `;
-    }
-    // Re-attach click listeners for navigation
-    sidebarNav.querySelectorAll('[data-page]').forEach(el => {
-      el.addEventListener('click', (e) => {
-        e.preventDefault();
-        const page = el.dataset.page;
-        navigate(page);
-        closeSidebar();
-      });
-    });
-  }
 }
-
-/* ---------- Sidebar Management ---------- */
-const sidebar = $('#sidebar');
-const sidebarBackdrop = $('#sidebar-backdrop');
-const sidebarToggle = $('#sidebar-toggle');
-
-function openSidebar() {
-  sidebar.classList.add('sidebar--open');
-  sidebarBackdrop.setAttribute('aria-hidden', 'false');
-  sidebarToggle.setAttribute('aria-expanded', 'true');
-  document.body.style.overflow = 'hidden';
-}
-
-function closeSidebar() {
-  sidebar.classList.remove('sidebar--open');
-  sidebarBackdrop.setAttribute('aria-hidden', 'true');
-  sidebarToggle.setAttribute('aria-expanded', 'false');
-  document.body.style.overflow = '';
-}
-
-sidebarToggle.addEventListener('click', () => {
-  if (sidebar.classList.contains('sidebar--open')) closeSidebar();
-  else openSidebar();
-});
-
-sidebarBackdrop.addEventListener('click', closeSidebar);
 
 /* ---------- Theme Management ---------- */
 const themeToggle = $('#theme-toggle');
@@ -454,14 +366,9 @@ function updateUserUI(user) {
   $('#user-avatar').textContent = initials;
   $('#user-avatar').className = `avatar ${avatarColorClass(name)}`;
 
-  // Sidebar
-  $('#sidebar-user-name').textContent = name;
-  $('#sidebar-user-email').textContent = email;
-  $('#sidebar-avatar').textContent = initials;
-  $('#sidebar-avatar').className = `avatar ${avatarColorClass(name)}`;
-
-  // Google connect button
-  if (user?.googleConnected) {
+  // Google connect button - handle both property names (backend returns googleConectado)
+  const googleConnected = user?.googleConnected ?? user?.googleConectado ?? false;
+  if (googleConnected) {
     $('#btn-google-connect-header').hidden = true;
     $('#btn-google-disconnect-header').hidden = false;
   } else {
@@ -2704,10 +2611,10 @@ async function loadTokens() {
 }
 
 function renderTokens(data) {
-  $('#saldo').textContent = data.saldo_tokens;
-  $('#racha').textContent = data.racha_dias;
+  $('#saldo-tokens').textContent = data.saldo_tokens;
+  $('#racha-dias').textContent = data.racha_dias;
 
-  const list = $('#tokens-history');
+  const list = $('#historial');
   if (!data.historial || !data.historial.length) {
     list.innerHTML = '<div class="empty-state" style="padding: var(--space-6); text-align: center;"><div class="empty-state__icon">🪙</div><h3 class="empty-state__title">Sin transacciones</h3><p class="empty-state__message">No hay historial de tokens aún.</p></div>';
     return;
@@ -3655,12 +3562,6 @@ const ONBOARDING_STEPS = [
     position: 'bottom'
   },
   {
-    element: '#sidebar',
-    title: 'Navegación lateral',
-    content: 'Desde aquí puedes acceder a todas las secciones: Agenda, Calendario, Notificaciones, Tokens, Resumen y Perfil.',
-    position: 'right'
-  },
-  {
     element: '#page-agenda',
     title: 'Tu Agenda',
     content: 'Aquí verás todas tus tareas organizadas. Puedes filtrar por curso, estado y ver el progreso de cada una.',
@@ -4082,6 +3983,34 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnCreateTask = $('#btn-create-task');
   if (btnCreateTask) {
     btnCreateTask.addEventListener('click', openCreateTaskModal);
+  }
+
+  // Sync button (header)
+  const btnSync = $('#btn-sync');
+  if (btnSync) {
+    btnSync.addEventListener('click', async () => {
+      try {
+        const res = await POST('/api/sync');
+        showToast(res.message || 'Sincronización completada', 'success');
+        loadAgenda();
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    });
+  }
+
+  // Sync button (empty state)
+  const emptySyncBtn = $('#empty-sync-btn');
+  if (emptySyncBtn) {
+    emptySyncBtn.addEventListener('click', async () => {
+      try {
+        const res = await POST('/api/sync');
+        showToast(res.message || 'Sincronización completada', 'success');
+        loadAgenda();
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    });
   }
 
   // Source filter change

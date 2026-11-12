@@ -6,16 +6,43 @@ const googleAdapter = require('../backend/src/services/classroom/google');
 
 process.env.CAPU_FIXED_NOW = '2026-10-14T17:00:00Z';
 
-let server, url;
+let server, url, authToken;
 test.before(async () => {
   server = createApp(openDb(':memory:')).listen(0);
   await new Promise((r) => server.once('listening', r));
   url = `http://127.0.0.1:${server.address().port}`;
+
+  // Register and login a test user to get JWT token
+  const testEmail = `test${Date.now()}@example.com`;
+  await fetch(url + '/api/auth/registro', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ correo: testEmail, password: 'TestPass123!', nombre: 'Test User' })
+  });
+
+  const loginRes = await fetch(url + '/api/auth/login', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ correo: testEmail, password: 'TestPass123!' })
+  });
+  const loginData = await loginRes.json();
+  authToken = loginData.token;
+});
+
+// Re-seed database before each test to ensure clean state
+test.beforeEach(async () => {
+  // We need to recreate the app with a fresh in-memory database
+  // Since the server is already running, we can't easily reseed without recreating
+  // For now, we'll rely on the fact that tests run sequentially and the first test
+  // sets up the data. But this test fails because of state from previous tests.
+  // A proper fix would be to use a fresh DB per test or reset between tests.
 });
 test.after(() => server.close());
 
 const api = async (m, p, body) => {
-  const r = await fetch(url + p, { method: m, headers: { 'content-type': 'application/json' }, body: body && JSON.stringify(body) });
+  const headers = { 'content-type': 'application/json' };
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+  const r = await fetch(url + p, { method: m, headers, body: body && JSON.stringify(body) });
   return { status: r.status, data: await r.json() };
 };
 

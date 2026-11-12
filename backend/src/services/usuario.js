@@ -17,7 +17,8 @@ function getPerfil(db, userId) {
       ultima_entrega_ok,
       preferencias_notificaciones,
       avatar_url,
-      created_at
+      created_at,
+      onboarding_completado
     FROM usuario
     WHERE id_usuario = ?
   `).get(userId);

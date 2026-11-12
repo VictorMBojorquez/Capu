@@ -21,6 +21,16 @@ function verifyToken(token) {
 }
 
 /**
+ * Extrae el token del header Authorization: Bearer <token>
+ * @param {String} authHeader - Header de autorización
+ * @returns {String|null} Token o null si no está presente
+ */
+function extractTokenFromHeader(authHeader) {
+  if (!authHeader?.startsWith('Bearer ')) return null;
+  return authHeader.slice(7);
+}
+
+/**
  * Middleware de autenticación JWT para Express
  * Extrae el token del header Authorization: Bearer <token>
  * Lo verifica y adjunta el usuario a req.user
@@ -28,10 +38,10 @@ function verifyToken(token) {
 function authMiddleware(db) {
   return async (req, res, next) => {
     const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
+    const token = extractTokenFromHeader(authHeader);
+    if (!token) {
       return res.status(401).json({ error: 'Token de autorización requerido' });
     }
-    const token = authHeader.slice(7);
     try {
       const decoded = verifyToken(token);
       const user = db.prepare('SELECT id_usuario, nombre, correo, rol FROM usuario WHERE id_usuario = ?').get(decoded.sub);
@@ -44,4 +54,4 @@ function authMiddleware(db) {
   };
 }
 
-module.exports = { generateToken, verifyToken, authMiddleware };
+module.exports = { generateToken, verifyToken, extractTokenFromHeader, authMiddleware };

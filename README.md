@@ -21,7 +21,7 @@ Proyecto Integrador de *Gestión de Proyectos de Software* · Tecnológico Nacio
 - **Servidor:** Express 4 · **Base de datos:** SQLite (módulo `node:sqlite`) en desarrollo
 - **Interfaz:** HTML, CSS y JavaScript sin dependencias (aplicación web adaptable)
 - **Pruebas:** ejecutor nativo de Node (`node --test`)
-- **Integración:** Google Classroom API (adaptador implementado; prueba con credenciales reales en la Etapa III)
+- **Integración:** Google Classroom API (adaptador `mock` y adaptador `google` implementados; OAuth 2.0 + PKCE implementado, la verificación con credenciales reales queda para la entrega final)
 
 ## Instalación y ejecución
 
@@ -64,7 +64,7 @@ No se requieren para el modo demostración (usuario “Estudiante Demo”, adapt
 
 ### Pruebas
 ```bash
-npm test             # 37 pruebas automatizadas
+npm test             # 41 pruebas automatizadas
 ```
 
 ## Estructura
@@ -96,10 +96,13 @@ capu/
 | `GET /api/tokens` · `GET /api/recompensas` · `POST /api/recompensas/:id/canjear` | Saldo, historial y canje | RF-08, RF-09 |
 | `GET /api/metricas` | Indicadores de seguimiento | RF-12 |
 
-## Estado de los requerimientos (Etapa II)
+## Estado de los requerimientos (Etapa III — entrega final)
 
-Implementados: RF-01 (flujo OAuth completo; pendiente prueba con credenciales reales), RF-03, RF-04, RF-05, RF-06 (alertas en la app), RF-07, RF-08, RF-09, RF-10, RF-12.
-Pendientes: envío real de notificaciones push/correo (RF-06) y RF-11 (preferencias).
+Implementados: RF-01 (flujo OAuth con Google completo, el paso con credenciales reales queda pendiente), RF-03, RF-04, RF-05, RF-06 (alertas; recordatorios por correo implementados, Web Push real pendiente), RF-07, RF-08, RF-09, RF-10, RF-11 (preferencias de notificaciones), RF-12.
+
+Pendientes: validación con credenciales reales de Google Classroom, envío real de Web Push (RF-06) y publicación de la aplicación en GitHub Pages (sólo el README se publica).
+
+La fecha de entrega final del proyecto es el **25 de noviembre de 2026** (Plan del Proyecto, Etapa II/III).
 
 ## Flujo de trabajo
 

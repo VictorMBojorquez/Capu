@@ -1,0 +1,44 @@
+<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'><title>Bitacora_Supervision_Pruebas_CAPU</title><style>
+:root{--primary:#2563eb;--dark:#0f172a;--text:#1f2937;--muted:#6b7280;--border:#e5e7eb;--bg:#f8fafc}
+*{box-sizing:border-box} body{margin:0;font-family:'Segoe UI',Arial,sans-serif;color:var(--text);line-height:1.65}
+.cover{min-height:100vh;padding:56px 48px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;color:#fff;background:linear-gradient(135deg,#0f172a 0%,#1e293b 55%,#1d4ed8 100%)}
+.logo{width:110px;height:110px;border-radius:22px;margin-bottom:24px}
+h1{font-size:50px;margin:0} .sub{font-size:22px;color:#dbeafe;max-width:900px;margin:12px 0 20px}
+.meta{color:#e5e7eb;margin:4px 0;font-size:17px}
+.team{margin-top:30px;width:min(950px,100%);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:22px 26px;text-align:left}
+.team h3{margin:0 0 10px;color:#bfdbfe} table{width:100%;border-collapse:collapse}
+.team th,.team td{padding:9px 8px;border-bottom:1px solid rgba(255,255,255,.15);font-size:14px;text-align:left} .team th{color:#bfdbfe}
+.page{max-width:1100px;margin:0 auto;padding:44px 52px}
+h2{font-size:30px;color:var(--dark);border-bottom:2px solid var(--border);padding-bottom:8px;margin:0 0 14px}
+h3{color:#1d4ed8;margin:24px 0 8px} p,li,td,th{font-size:15.5px}
+.data{width:100%;border-collapse:collapse;margin:14px 0}.data th,.data td{border:1px solid var(--border);padding:9px 10px;vertical-align:top;text-align:left}.data th{background:#f1f5f9}
+.callout{background:#eff6ff;border-left:4px solid var(--primary);padding:14px 16px;border-radius:8px;margin:14px 0}
+figure{margin:22px 0;page-break-inside:avoid} figure img{width:100%;border:1px solid var(--border);border-radius:10px} figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:8px}
+.detail{border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin:8px 0 22px;background:#fff}
+.footer{margin-top:36px;padding-top:14px;border-top:1px solid var(--border);color:var(--muted);font-size:13px;text-align:center}
+@media print{.cover{page-break-after:always}.page{max-width:none;padding:34px 38px}}
+</style></head><body>
+<section class="cover"><svg class="logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" rx="22" fill="#2563eb"/><path d="M24 44 Q38 72 50 63 L78 26" stroke="#fff" stroke-width="9" fill="none" stroke-linecap="round"/><circle cx="40" cy="55" r="2.6" fill="#fff"/><circle cx="50" cy="55" r="2.6" fill="#fff"/></svg><h1>CAPU</h1><div class="sub">Bitácora de Supervisión y Pruebas — Entrega Final</div><div class="meta">Proyecto Integrador · Gestión de Proyectos de Software</div><div class="meta">Tecnológico Nacional de México · Instituto Tecnológico de Tijuana</div><div class="meta">Fecha de entrega: 26 de noviembre de 2026</div><div class="team"><h3>Integrantes del proyecto</h3><table><thead><tr><th>Integrante</th><th>Matrícula</th><th>Rol</th></tr></thead><tbody>
+<tr><td>Aldo Juventino Ballesteros Cruz</td><td>23211920</td><td>Líder de proyecto / Promotor</td></tr>
+<tr><td>Victor Manuel Bojorquez Valdez</td><td>23211926</td><td>Desarrollador de integraciones (backend/API)</td></tr>
+<tr><td>Luis Adao Leonel Duran Ponce</td><td>23211951</td><td>Responsable de gamificación / producto</td></tr>
+<tr><td>Maximiliano Alberto Grande Ortega</td><td>23211974</td><td>Diseñador UX/UI y accesibilidad</td></tr>
+<tr><td>Jorge Luis Lopez Molgado</td><td>23212002</td><td>Responsable de seguridad y privacidad</td></tr>
+</tbody></table></div></section>
+<main class='page'>
+<h2>1. Objetivo</h2><p>Registrar las pruebas realizadas al sistema CAPU, los resultados obtenidos, errores detectados y acciones correctivas aplicadas, verificando el cumplimiento de los requerimientos.</p>
+<h2>2. Tabla de pruebas</h2>
+<table class='data'><thead><tr><th>#</th><th>Funcionalidad</th><th>Módulo</th><th>Fecha</th><th>Responsable</th><th>Resultado esperado</th><th>Resultado obtenido</th><th>Error</th><th>Acción correctiva</th><th>Estado</th></tr></thead><tbody>
+<tr><td>1</td><td>Salud del servicio</td><td>/api/health</td><td>24/11/2026</td><td>Equipo</td><td>HTTP 200 ok</td><td>HTTP 200 ok</td><td>Ninguno</td><td>N/A</td><td>Corregido</td></tr>
+<tr><td>2</td><td>Sincronización Classroom</td><td>sync.js</td><td>24/11/2026</td><td>Equipo</td><td>Importa cursos/tareas</td><td>3 cursos, 7 tareas</td><td>Ninguno</td><td>N/A</td><td>Corregido</td></tr>
+<tr><td>3</td><td>Entrega y tokens</td><td>tokens.js</td><td>24/11/2026</td><td>Equipo</td><td>Otorga tokens, 409 en duplicado</td><td>Correcto</td><td>Ninguno</td><td>N/A</td><td>Corregido</td></tr>
+<tr><td>4</td><td>Alertas/recordatorios</td><td>alertas/reminders</td><td>24/11/2026</td><td>Equipo</td><td>Genera alertas correctas</td><td>Correcto</td><td>Ninguno</td><td>N/A</td><td>Corregido</td></tr>
+<tr><td>5</td><td>Aislamiento multiusuario</td><td>app.js + servicios</td><td>24/11/2026</td><td>Equipo</td><td>Datos aislados por usuario</td><td>4/4 pruebas nuevas OK</td><td>Fuga de datos entre usuarios</td><td>Filtro por id_usuario + validación dueño</td><td>Corregido</td></tr>
+</tbody></table>
+<div class='callout'><strong>Resultado global:</strong> 41/41 pruebas automatizadas en verde.</div>
+<h2>3. Evidencia visual</h2>
+<figure><img src="../../docs/capturas/02_agenda_sincronizada.png" alt="Figura 1. Agenda sincronizada tras pruebas de sincronización."><figcaption>Figura 1. Agenda sincronizada tras pruebas de sincronización.</figcaption></figure><div class="detail"><strong>Explicación detallada:</strong> Se observa la agenda con tareas cargadas desde la sincronización. Esta captura evidencia que el flujo de sincronización y visualización funciona: las tareas aparecen listadas con su información, permitiendo validar la importación y el renderizado correcto en la interfaz.</div>
+<figure><img src="../../docs/capturas/04_tarea_entregada_tokens.png" alt="Figura 2. Tarea entregada y tokens asignados."><figcaption>Figura 2. Tarea entregada y tokens asignados.</figcaption></figure><div class="detail"><strong>Explicación detallada:</strong> Se observa una tarea marcada como entregada y el efecto en la gamificación. Esta captura evidencia la prueba de entrega: al completar la tarea el sistema cambia su estado y asigna tokens según las reglas, confirmando el funcionamiento del módulo de tokens.</div>
+<figure><img src="../../docs/capturas/09_recordatorio.png" alt="Figura 3. Notificaciones y recordatorios del sistema."><figcaption>Figura 3. Notificaciones y recordatorios del sistema.</figcaption></figure><div class="detail"><strong>Explicación detallada:</strong> Se observa el centro de notificaciones/recordatorios. Esta evidencia valida que el sistema genera y presenta avisos al usuario, lo cual está relacionado con las pruebas de alertas y recordatorios.</div>
+<div class='footer'>CAPU · Bitácora de Supervisión y Pruebas · 26/11/2026</div>
+</main></body></html>

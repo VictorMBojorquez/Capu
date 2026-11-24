@@ -1,0 +1,46 @@
+<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'><title>Seguimiento_Control_CAPU</title><style>
+:root{--primary:#2563eb;--dark:#0f172a;--text:#1f2937;--muted:#6b7280;--border:#e5e7eb;--bg:#f8fafc}
+*{box-sizing:border-box} body{margin:0;font-family:'Segoe UI',Arial,sans-serif;color:var(--text);line-height:1.65}
+.cover{min-height:100vh;padding:56px 48px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;color:#fff;background:linear-gradient(135deg,#0f172a 0%,#1e293b 55%,#1d4ed8 100%)}
+.logo{width:110px;height:110px;border-radius:22px;margin-bottom:24px}
+h1{font-size:50px;margin:0} .sub{font-size:22px;color:#dbeafe;max-width:900px;margin:12px 0 20px}
+.meta{color:#e5e7eb;margin:4px 0;font-size:17px}
+.team{margin-top:30px;width:min(950px,100%);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:22px 26px;text-align:left}
+.team h3{margin:0 0 10px;color:#bfdbfe} table{width:100%;border-collapse:collapse}
+.team th,.team td{padding:9px 8px;border-bottom:1px solid rgba(255,255,255,.15);font-size:14px;text-align:left} .team th{color:#bfdbfe}
+.page{max-width:1100px;margin:0 auto;padding:44px 52px}
+h2{font-size:30px;color:var(--dark);border-bottom:2px solid var(--border);padding-bottom:8px;margin:0 0 14px}
+h3{color:#1d4ed8;margin:24px 0 8px} p,li,td,th{font-size:15.5px}
+.data{width:100%;border-collapse:collapse;margin:14px 0}.data th,.data td{border:1px solid var(--border);padding:9px 10px;vertical-align:top;text-align:left}.data th{background:#f1f5f9}
+.callout{background:#eff6ff;border-left:4px solid var(--primary);padding:14px 16px;border-radius:8px;margin:14px 0}
+figure{margin:22px 0;page-break-inside:avoid} figure img{width:100%;border:1px solid var(--border);border-radius:10px} figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:8px}
+.detail{border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin:8px 0 22px;background:#fff}
+.footer{margin-top:36px;padding-top:14px;border-top:1px solid var(--border);color:var(--muted);font-size:13px;text-align:center}
+@media print{.cover{page-break-after:always}.page{max-width:none;padding:34px 38px}}
+</style></head><body>
+<section class="cover"><svg class="logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" rx="22" fill="#2563eb"/><path d="M24 44 Q38 72 50 63 L78 26" stroke="#fff" stroke-width="9" fill="none" stroke-linecap="round"/><circle cx="40" cy="55" r="2.6" fill="#fff"/><circle cx="50" cy="55" r="2.6" fill="#fff"/></svg><h1>CAPU</h1><div class="sub">Seguimiento y Control del Proyecto — Entrega Final</div><div class="meta">Proyecto Integrador · Gestión de Proyectos de Software</div><div class="meta">Tecnológico Nacional de México · Instituto Tecnológico de Tijuana</div><div class="meta">Fecha de entrega: 26 de noviembre de 2026</div><div class="team"><h3>Integrantes del proyecto</h3><table><thead><tr><th>Integrante</th><th>Matrícula</th><th>Rol</th></tr></thead><tbody>
+<tr><td>Aldo Juventino Ballesteros Cruz</td><td>23211920</td><td>Líder de proyecto / Promotor</td></tr>
+<tr><td>Victor Manuel Bojorquez Valdez</td><td>23211926</td><td>Desarrollador de integraciones (backend/API)</td></tr>
+<tr><td>Luis Adao Leonel Duran Ponce</td><td>23211951</td><td>Responsable de gamificación / producto</td></tr>
+<tr><td>Maximiliano Alberto Grande Ortega</td><td>23211974</td><td>Diseñador UX/UI y accesibilidad</td></tr>
+<tr><td>Jorge Luis Lopez Molgado</td><td>23212002</td><td>Responsable de seguridad y privacidad</td></tr>
+</tbody></table></div></section>
+<main class='page'>
+<h2>1. Cronograma y estado</h2>
+<table class='data'><thead><tr><th>Fase</th><th>Periodo</th><th>Estado</th><th>Observación</th></tr></thead><tbody>
+<tr><td>Etapa I - Calidad</td><td>23 sep - 6 oct 2026</td><td>100%</td><td>Plan de calidad completado</td></tr>
+<tr><td>Etapa II - Planificación</td><td>7 oct - 27 oct 2026</td><td>100%</td><td>Plan y estimación</td></tr>
+<tr><td>Etapa III - Desarrollo</td><td>28 oct - 14 nov 2026</td><td>100%</td><td>Integración y funciones principales</td></tr>
+<tr><td>Etapa IV-V - Cierre</td><td>15 nov - 26 nov 2026</td><td>100%</td><td>Pruebas, correcciones y entrega</td></tr>
+</tbody></table>
+<h2>2. Incidencias y acciones correctivas</h2>
+<table class='data'><thead><tr><th>Incidencia</th><th>Impacto</th><th>Acción correctiva</th><th>Estado</th></tr></thead><tbody>
+<tr><td>Endpoints sin aislamiento por usuario</td><td>Alto</td><td>Filtrado por id_usuario y validación de dueño</td><td>Resuelto</td></tr>
+<tr><td>OAuth no emitía sesión JWT al frontend</td><td>Alto</td><td>Generar JWT en callback y capturarlo en frontend</td><td>Resuelto</td></tr>
+<tr><td>Prueba admin OAuth con import inválido</td><td>Medio</td><td>Usar fetch global de Node</td><td>Resuelto</td></tr>
+</tbody></table>
+<h2>3. Evidencia visual de seguimiento</h2>
+<figure><img src="../../docs/capturas/06_resumen.png" alt="Figura 1. Panel de resumen y métricas."><figcaption>Figura 1. Panel de resumen y métricas.</figcaption></figure><div class="detail"><strong>Explicación detallada:</strong> Esta captura evidencia el seguimiento del producto: el módulo de resumen muestra indicadores del desempeño del usuario. Sirve como apoyo visual para verificar que el sistema reporta métricas y estado general de las tareas.</div>
+<figure><img src="../../docs/capturas/10_documentacion.png" alt="Figura 2. Documentación integrada en la aplicación."><figcaption>Figura 2. Documentación integrada en la aplicación.</figcaption></figure><div class="detail"><strong>Explicación detallada:</strong> Se observa la página de documentación dentro de CAPU. Esto evidencia que el proyecto incluye soporte documental accesible para el usuario, con explicación de funcionalidades y capturas.</div>
+<div class='footer'>CAPU · Seguimiento y Control · 26/11/2026</div>
+</main></body></html>

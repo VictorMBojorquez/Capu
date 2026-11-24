@@ -5,57 +5,48 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CAPU — Manual de Usuario</title>
   <style>
-    :root { --primary:#2563eb; --text:#1f2937; --muted:#6b7280; --bg:#f8fafc; --border:#e5e7eb; }
-    * { box-sizing: border-box; }
-    body { margin:0; font-family: "Segoe UI", Arial, sans-serif; color:var(--text); background:#fff; line-height:1.6; }
-    .cover { min-height: 100vh; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; padding:48px; background: linear-gradient(135deg,#0f172a 0%,#1e293b 60%,#1d4ed8 100%); color:#fff; }
-    .logo { width:120px; height:120px; margin-bottom:24px; border-radius:24px; background:#2563eb; display:flex; align-items:center; justify-content:center; box-shadow:0 10px 30px rgba(0,0,0,.25); }
-    .logo svg { width:100px; height:100px; }
-    .cover h1 { font-size:52px; margin:0 0 8px; letter-spacing:1px; }
-    .cover h2 { font-size:24px; font-weight:500; margin:0 0 24px; color:#dbeafe; max-width:900px; }
-    .cover .meta { font-size:18px; color:#e5e7eb; margin:4px 0; }
-    .cover .card { margin-top:36px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15); padding:24px 32px; border-radius:16px; max-width:900px; width:100%; }
-    .cover table { width:100%; border-collapse:collapse; color:#fff; font-size:15px; }
-    .cover th,.cover td { padding:10px 8px; border-bottom:1px solid rgba(255,255,255,.15); text-align:left; }
-    .cover th { color:#bfdbfe; font-weight:600; }
-    .page { padding:48px 56px; max-width:1100px; margin:0 auto; }
-    h2 { color:#0f172a; font-size:30px; margin:0 0 16px; padding-bottom:8px; border-bottom:2px solid var(--border); }
-    h3 { color:#1d4ed8; font-size:22px; margin-top:28px; }
-    p, li { font-size:16px; }
-    .muted { color:var(--muted); }
-    .toc ol { padding-left:20px; }
-    .toc li { margin:8px 0; }
-    .toc a { color:#1d4ed8; text-decoration:none; }
-    .info-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin:20px 0; }
-    .info { background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:16px; }
-    .info strong { display:block; color:#0f172a; margin-bottom:4px; }
-    .shot { margin:28px 0; page-break-inside: avoid; }
-    .shot img { width:100%; max-width:100%; border:1px solid var(--border); border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,.08); }
-    .shot figcaption { margin-top:8px; font-size:14px; color:var(--muted); text-align:center; }
-    .note { background:#eff6ff; border-left:4px solid var(--primary); padding:14px 16px; border-radius:8px; margin:16px 0; }
-    table.data { width:100%; border-collapse:collapse; margin:16px 0; font-size:15px; }
-    table.data th, table.data td { border:1px solid var(--border); padding:10px 12px; vertical-align:top; text-align:left; }
-    table.data th { background:#f1f5f9; }
-    .footer { margin-top:40px; padding-top:16px; border-top:1px solid var(--border); color:var(--muted); font-size:13px; text-align:center; }
-    @media print { .cover { min-height: 100vh; page-break-after: always; } .page { max-width:none; } a { color:#1d4ed8; } }
+    :root { --primary:#2563eb; --primary2:#0f172a; --text:#1f2937; --muted:#6b7280; --border:#e5e7eb; --bg:#f8fafc; }
+    *{box-sizing:border-box} body{margin:0;font-family:"Segoe UI",Arial,sans-serif;color:var(--text);line-height:1.65;background:#fff}
+    .cover{min-height:100vh;padding:56px 48px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;color:#fff;background:linear-gradient(135deg,#0f172a 0%,#1e293b 55%,#1d4ed8 100%)}
+    .logo{width:120px;height:120px;border-radius:24px;margin-bottom:24px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+    .cover h1{font-size:56px;margin:0;letter-spacing:1px}.cover h2{font-size:24px;font-weight:500;max-width:950px;margin:12px 0 24px;color:#dbeafe}
+    .meta{font-size:18px;color:#e5e7eb;margin:4px 0}
+    .team{margin-top:32px;width:min(980px,100%);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:24px 28px;text-align:left}
+    .team h3{margin:0 0 12px;color:#bfdbfe;font-size:20px} table{width:100%;border-collapse:collapse}
+    .team th,.team td{padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.15);font-size:15px} .team th{color:#bfdbfe;text-align:left}
+    .page{max-width:1100px;margin:0 auto;padding:48px 56px}
+    h2.sec{font-size:32px;color:var(--primary2);margin:0 0 16px;padding-bottom:10px;border-bottom:2px solid var(--border)}
+    h3{font-size:22px;color:#1d4ed8;margin:28px 0 10px} h4{font-size:18px;color:#0f172a;margin:20px 0 8px}
+    p,li,td,th{font-size:16px} .muted{color:var(--muted)}
+    .toc ol{padding-left:22px}.toc li{margin:8px 0}.toc a{color:#1d4ed8;text-decoration:none}
+    .callout{background:#eff6ff;border-left:4px solid var(--primary);padding:14px 16px;border-radius:8px;margin:16px 0}
+    .warn{background:#fff7ed;border-left:4px solid #ea580c;padding:14px 16px;border-radius:8px;margin:16px 0}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}.card{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px}
+    .card strong{display:block;margin-bottom:4px;color:#0f172a}
+    figure.shot{margin:28px 0;page-break-inside:avoid} figure.shot img{width:100%;border:1px solid var(--border);border-radius:12px;box-shadow:0 4px 18px rgba(0,0,0,.08)}
+    figure.shot figcaption{font-size:14px;color:var(--muted);margin-top:10px;text-align:center}
+    .detail{background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin:12px 0 28px}
+    .detail ul{margin:8px 0 0 20px} .detail li{margin:4px 0}
+    table.data{width:100%;border-collapse:collapse;margin:14px 0;font-size:15px} .data th,.data td{border:1px solid var(--border);padding:10px 12px;vertical-align:top;text-align:left} .data th{background:#f1f5f9}
+    .footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--border);color:var(--muted);font-size:13px;text-align:center}
+    @media print{.cover{page-break-after:always}.page{max-width:none;padding:36px 40px} a{color:#1d4ed8}}
   </style>
 </head>
 <body>
   <section class="cover">
-    <div class="logo" aria-hidden="true">
-      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-        <rect width="100" height="100" rx="22" fill="#2563eb"/>
-        <path d="M24 44 Q38 72 50 63 L78 26" stroke="#fff" stroke-width="9" fill="none" stroke-linecap="round"/>
-        <circle cx="40" cy="55" r="2.6" fill="#fff"/>
-        <circle cx="50" cy="55" r="2.6" fill="#fff"/>
-      </svg>
-    </div>
+    <svg class="logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Logo CAPU">
+      <rect width="100" height="100" rx="22" fill="#2563eb"/>
+      <path d="M24 44 Q38 72 50 63 L78 26" stroke="#fff" stroke-width="9" fill="none" stroke-linecap="round"/>
+      <circle cx="40" cy="55" r="2.6" fill="#fff"/>
+      <circle cx="50" cy="55" r="2.6" fill="#fff"/>
+    </svg>
     <h1>CAPU</h1>
     <h2>Manual de Usuario — Agenda inteligente con recordatorios y recompensas (tokens), integrada a Google Classroom</h2>
     <div class="meta">Proyecto Integrador · Gestión de Proyectos de Software</div>
     <div class="meta">Tecnológico Nacional de México · Instituto Tecnológico de Tijuana</div>
     <div class="meta">Fecha de entrega: 26 de noviembre de 2026</div>
-    <div class="card">
+    <div class="team">
+      <h3>Integrantes del proyecto</h3>
       <table>
         <thead><tr><th>Integrante</th><th>Matrícula</th><th>Rol</th></tr></thead>
         <tbody>
@@ -70,101 +61,247 @@
   </section>
 
   <main class="page">
-    <section class="toc">
-      <h2>Índice</h2>
+    <section class="toc" id="indice">
+      <h2 class="sec">Índice</h2>
       <ol>
-        <li><a href="#intro">Introducción</a></li>
+        <li><a href="#introduccion">Introducción</a></li>
         <li><a href="#objetivo">Objetivo y alcance</a></li>
-        <li><a href="#requisitos">Requisitos e instalación</a></li>
-        <li><a href="#uso">Uso del sistema por módulos</a></li>
-        <li><a href="#capturas">Capturas del sistema</a></li>
+        <li><a href="#requisitos">Requisitos, instalación y ejecución local</a></li>
+        <li><a href="#modulos">Uso del sistema por módulos</a></li>
+        <li><a href="#capturas">Capturas del sistema (explicadas en detalle)</a></li>
         <li><a href="#problemas">Solución de problemas</a></li>
         <li><a href="#conclusion">Conclusión</a></li>
       </ol>
     </section>
 
-    <section id="intro">
-      <h2>1. Introducción</h2>
-      <p>CAPU es una agenda inteligente que ayuda a los estudiantes a organizar sus tareas, registrar avances, recibir alertas y mantenerse motivados mediante un sistema de recompensas con tokens. El sistema se integra con Google Classroom para sincronizar cursos, tareas y entregas.</p>
-      <div class="info-grid">
-        <div class="info"><strong>Proyecto</strong>CAPU — Agenda inteligente con recordatorios y recompensas</div>
-        <div class="info"><strong>Materia</strong>Gestión de Proyectos de Software</div>
-        <div class="info"><strong>Repositorio</strong>https://github.com/VictorMBojorquez/Capu</div>
-        <div class="info"><strong>Versión</strong>0.3.0 (Entrega final)</div>
+    <section id="introduccion">
+      <h2 class="sec">1. Introducción</h2>
+      <p>Este documento es el <strong>Manual de Usuario</strong> del sistema <strong>CAPU</strong>, desarrollado para la materia de Gestión de Proyectos de Software. Su propósito es explicar de forma clara cómo utilizar la aplicación, qué hace cada módulo y cómo interpretar las pantallas principales del sistema.</p>
+      <p>CAPU es una agenda inteligente con recordatorios y recompensas (tokens), integrada a Google Classroom. Permite a los estudiantes organizar tareas, registrar avances, recibir alertas y mantenerse motivados mediante gamificación.</p>
+      <div class="grid2">
+        <div class="card"><strong>Repositorio</strong>https://github.com/VictorMBojorquez/Capu</div>
+        <div class="card"><strong>Versión</strong>0.3.0 — Entrega final</div>
+        <div class="card"><strong>Tecnologías</strong>Node.js, Express, SQLite, HTML, CSS, JavaScript</div>
+        <div class="card"><strong>Pruebas</strong>41/41 pruebas automatizadas en verde</div>
       </div>
     </section>
 
     <section id="objetivo">
-      <h2>2. Objetivo y alcance</h2>
-      <p><strong>Objetivo:</strong> Optimizar la gestión del tiempo académico mediante recordatorios automáticos, seguimiento de avances y un sistema de recompensas con tokens.</p>
-      <p><strong>Alcance:</strong> Inicio de sesión (email/password y Google OAuth), sincronización con Google Classroom, agenda con filtros, registro de avance, recordatorios/alertas, tokens y recompensas, notificaciones, métricas y documentación.</p>
+      <h2 class="sec">2. Objetivo y alcance</h2>
+      <p><strong>Objetivo:</strong> Optimizar la gestión del tiempo académico mediante recordatorios automáticos, seguimiento de avances y un sistema de recompensas con tokens, integrado con Google Classroom.</p>
+      <p><strong>Alcance funcional:</strong></p>
+      <ul>
+        <li>Autenticación de usuarios (registro, inicio de sesión, recuperación, Google OAuth).</li>
+        <li>Sincronización de cursos, tareas y entregas desde Google Classroom.</li>
+        <li>Agenda con filtros, calendario y detalle de tareas.</li>
+        <li>Registro de avance y entrega de tareas.</li>
+        <li>Gamificación: tokens, racha, recompensas y canje.</li>
+        <li>Alertas, recordatorios y centro de notificaciones.</li>
+        <li>Resumen/métricas y perfil de usuario.</li>
+      </ul>
     </section>
 
     <section id="requisitos">
-      <h2>3. Requisitos e instalación</h2>
-      <h3>Requisitos</h3>
+      <h2 class="sec">3. Requisitos, instalación y ejecución local</h2>
+      <h3>3.1 Requisitos</h3>
       <ul>
         <li>Node.js 22.5 o superior.</li>
-        <li>Navegador web moderno (Chrome, Edge, Firefox).</li>
-        <li>(Opcional) Credenciales de Google Cloud para sincronización real con Classroom.</li>
+        <li>Navegador web moderno (Chrome, Edge o Firefox).</li>
+        <li>Opcional: credenciales de Google Cloud para sincronización real con Classroom.</li>
       </ul>
-      <h3>Instalación y ejecución local</h3>
+      <h3>3.2 Instalación y ejecución</h3>
       <table class="data">
-        <tr><th>Paso</th><th>Comando / Acción</th></tr>
-        <tr><td>1. Clonar</td><td><code>git clone https://github.com/VictorMBojorquez/Capu.git</code></td></tr>
-        <tr><td>2. Instalar dependencias</td><td><code>cd capu &amp;&amp; npm install</code></td></tr>
-        <tr><td>3. Configurar entorno</td><td><code>cp .env.example .env</code> (Windows: <code>copy .env.example .env</code>)</td></tr>
-        <tr><td>4. Iniciar</td><td><code>npm start</code> — abrir <code>http://localhost:3000</code></td></tr>
-        <tr><td>5. Pruebas</td><td><code>npm test</code> (41 pruebas automatizadas)</td></tr>
+        <thead><tr><th>Paso</th><th>Acción</th><th>Resultado esperado</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Clonar el repositorio: <code>git clone https://github.com/VictorMBojorquez/Capu.git</code></td><td>Se obtiene el código fuente del proyecto.</td></tr>
+          <tr><td>2</td><td>Entrar y instalar: <code>cd capu</code> y <code>npm install</code></td><td>Se instalan las dependencias.</td></tr>
+          <tr><td>3</td><td>Configurar entorno: <code>copy .env.example .env</code></td><td>Se crea el archivo de configuración.</td></tr>
+          <tr><td>4</td><td>Ejecutar: <code>npm start</code></td><td>El servidor inicia en <code>http://localhost:3000</code>.</td></tr>
+          <tr><td>5</td><td>Abrir el navegador en <code>http://localhost:3000</code></td><td>Se muestra la pantalla de acceso de CAPU.</td></tr>
+        </tbody>
       </table>
-      <div class="note"><strong>Nota:</strong> Sin credenciales de Google, la aplicación funciona con el adaptador de demostración (mock). Para conexión real, configura <code>GOOGLE_CLIENT_ID</code> y <code>GOOGLE_CLIENT_SECRET</code> en <code>.env</code>.</div>
+      <div class="callout"><strong>Modo demostración:</strong> si no se configuran credenciales de Google, CAPU funciona con el adaptador mock. Esto permite probar la sincronización y las funciones principales sin cuenta real de Classroom.</div>
     </section>
 
-    <section id="uso">
-      <h2>4. Uso del sistema por módulos</h2>
-      <h3>Agenda</h3>
-      <p>Visualiza tareas sincronizadas desde Classroom, filtra por curso/estado, revisa detalles y registra avances. Permite marcar tareas como completadas para obtener tokens.</p>
-      <h3>Calendario y notificaciones</h3>
-      <p>Consulta tareas por fecha y revisa alertas de vencimiento o próximas entregas. El centro de notificaciones muestra recordatorios y avisos.</p>
-      <h3>Tokens y recompensas</h3>
-      <p>Al entregar tareas a tiempo se otorgan tokens. La racha y bonos incrementan la recompensa. Los tokens pueden canjearse por recompensas disponibles.</p>
-      <h3>Resumen y perfil</h3>
-      <p>El resumen muestra métricas de productividad. En perfil se gestionan datos del usuario y preferencias.</p>
-      <h3>Documentación</h3>
-      <p>La página de documentación dentro de la app incluye la guía y capturas del sistema para consulta rápida.</p>
+    <section id="modulos">
+      <h2 class="sec">4. Uso del sistema por módulos</h2>
+      <table class="data">
+        <thead><tr><th>Módulo</th><th>Qué hace</th><th>Cómo se usa</th></tr></thead>
+        <tbody>
+          <tr><td>Acceso / Registro</td><td>Permite crear cuenta e iniciar sesión.</td><td>El usuario ingresa correo y contraseña, o usa Google si está configurado.</td></tr>
+          <tr><td>Agenda</td><td>Muestra tareas sincronizadas y su estado.</td><td>Se revisan tareas, se filtran por curso/estado y se abre el detalle.</td></tr>
+          <tr><td>Sincronización</td><td>Importa cursos y tareas desde Classroom.</td><td>Se pulsa “Sincronizar con Classroom”; en modo demo carga datos de prueba.</td></tr>
+          <tr><td>Tokens y recompensas</td><td>Gestiona la gamificación.</td><td>Al entregar tareas se ganan tokens; se pueden canjear recompensas.</td></tr>
+          <tr><td>Notificaciones</td><td>Muestra alertas y recordatorios.</td><td>Se revisa el centro de notificaciones y las preferencias.</td></tr>
+          <tr><td>Resumen / Perfil</td><td>Muestra métricas y datos del usuario.</td><td>Se consulta el progreso y se ajusta la configuración personal.</td></tr>
+        </tbody>
+      </table>
     </section>
 
     <section id="capturas">
-      <h2>5. Capturas del sistema</h2>
-      <p class="muted">Capturas tomadas desde la aplicación CAPU ejecutada localmente.</p>
+      <h2 class="sec">5. Capturas del sistema (explicadas en detalle)</h2>
+      <p class="muted">Las siguientes capturas fueron tomadas desde la aplicación CAPU ejecutada localmente. En cada figura se describe lo que se observa, para qué sirve la pantalla y qué debe hacer el usuario.</p>
 
-      <figure class="shot"><img src="../../docs/capturas/01_estado_inicial.png" alt="Estado inicial / inicio de sesión"><figcaption>Figura 1. Pantalla de inicio / acceso al sistema.</figcaption></figure>
-      <figure class="shot"><img src="../../docs/capturas/02_agenda_sincronizada.png" alt="Agenda sincronizada"><figcaption>Figura 2. Agenda con tareas sincronizadas.</figcaption></figure>
-      <figure class="shot"><img src="../../docs/capturas/03_avance_guardado.png" alt="Avance guardado"><figcaption>Figura 3. Gestión y avance de tareas.</figcaption></figure>
-      <figure class="shot"><img src="../../docs/capturas/04_tarea_entregada_tokens.png" alt="Tarea entregada y tokens"><figcaption>Figura 4. Entrega de tarea y asignación de tokens.</figcaption></figure>
-      <figure class="shot"><img src="../../docs/capturas/05_tokens_recompensas.png" alt="Tokens y recompensas"><figcaption>Figura 5. Módulo de tokens y recompensas.</figcaption></figure>
-      <figure class="shot"><img src="../../docs/capturas/06_resumen.png" alt="Resumen"><figcaption>Figura 6. Resumen y métricas de productividad.</figcaption></figure>
-      <figure class="shot"><img src="../../docs/capturas/07_filtro_vencidas.png" alt="Filtro de tareas"><figcaption>Figura 7. Filtros y visualización de tareas.</figcaption></figure>
-      <figure class="shot"><img src="../../docs/capturas/08_movil.png" alt="Vista móvil"><figcaption>Figura 8. Vista móvil responsiva.</figcaption></figure>
-      <figure class="shot"><img src="../../docs/capturas/09_recordatorio.png" alt="Notificaciones"><figcaption>Figura 9. Notificaciones / recordatorios.</figcaption></figure>
-      <figure class="shot"><img src="../../docs/capturas/10_documentacion.png" alt="Página de documentación"><figcaption>Figura 10. Página de documentación dentro de la aplicación.</figcaption></figure>
+      <figure class="shot">
+        <img src="../../docs/capturas/01_estado_inicial.png" alt="Pantalla de inicio de sesión de CAPU">
+        <figcaption>Figura 1. Pantalla de inicio de sesión (estado inicial).</figcaption>
+      </figure>
+      <div class="detail">
+        <h4>Descripción detallada</h4>
+        <ul>
+          <li><strong>Qué se observa:</strong> La pantalla de acceso al sistema CAPU con el formulario de inicio de sesión. Se aprecian los campos para correo electrónico y contraseña, el botón para ingresar y las opciones de navegación para registro/recuperación.</li>
+          <li><strong>Propósito:</strong> Permitir que el usuario autenticado acceda a su cuenta para visualizar sus tareas, tokens y notificaciones.</li>
+          <li><strong>Cómo se usa:</strong> El usuario escribe su correo y contraseña, luego presiona el botón de inicio de sesión. Si no tiene cuenta, puede ir a registro.</li>
+          <li><strong>Resultado esperado:</strong> Al autenticarse correctamente, el sistema redirige a la agenda principal del usuario.</li>
+        </ul>
+      </div>
+
+      <figure class="shot">
+        <img src="../../docs/capturas/02_agenda_sincronizada.png" alt="Agenda sincronizada con tareas">
+        <figcaption>Figura 2. Agenda sincronizada con tareas de Classroom.</figcaption>
+      </figure>
+      <div class="detail">
+        <h4>Descripción detallada</h4>
+        <ul>
+          <li><strong>Qué se observa:</strong> La vista principal de Agenda con la lista de tareas cargadas. Se muestran tarjetas/tareas con título, curso, fecha límite y estado. También se observan controles de navegación y acciones disponibles en la interfaz.</li>
+          <li><strong>Propósito:</strong> Centralizar las actividades académicas del estudiante en un solo lugar, facilitando la organización y el seguimiento.</li>
+          <li><strong>Cómo se usa:</strong> El usuario revisa las tareas, puede filtrar por curso o estado, abrir el detalle de una tarea y usar el botón de sincronización para actualizar desde Classroom.</li>
+          <li><strong>Resultado esperado:</strong> El estudiante identifica rápidamente qué tareas tiene pendientes, en progreso, vencidas o entregadas.</li>
+        </ul>
+      </div>
+
+      <figure class="shot">
+        <img src="../../docs/capturas/03_avance_guardado.png" alt="Avance de tarea en agenda">
+        <figcaption>Figura 3. Registro y visualización del avance de tareas.</figcaption>
+      </figure>
+      <div class="detail">
+        <h4>Descripción detallada</h4>
+        <ul>
+          <li><strong>Qué se observa:</strong> La agenda con tareas y sus indicadores de estado/avance. La interfaz permite visualizar el progreso asociado a las actividades.</li>
+          <li><strong>Propósito:</strong> Dar seguimiento al progreso de cada tarea antes de su entrega final, evitando dejar todo para el último momento.</li>
+          <li><strong>Cómo se usa:</strong> El usuario selecciona una tarea y actualiza el porcentaje de avance (0 a 100). El sistema refleja el cambio de estado cuando corresponde.</li>
+          <li><strong>Resultado esperado:</strong> El avance queda guardado y la tarea puede pasar a estado “en progreso”, ayudando al control personal.</li>
+        </ul>
+      </div>
+
+      <figure class="shot">
+        <img src="../../docs/capturas/04_tarea_entregada_tokens.png" alt="Tarea entregada y tokens otorgados">
+        <figcaption>Figura 4. Tarea entregada y asignación de tokens.</figcaption>
+      </figure>
+      <div class="detail">
+        <h4>Descripción detallada</h4>
+        <ul>
+          <li><strong>Qué se observa:</strong> La agenda después de completar una tarea. La tarea aparece con estado de entregada y el sistema refleja la recompensa asociada al cumplimiento.</li>
+          <li><strong>Propósito:</strong> Confirmar que la entrega fue registrada y mostrar la gamificación (tokens) como incentivo por cumplir a tiempo.</li>
+          <li><strong>Cómo se usa:</strong> El usuario marca la tarea como completada desde el detalle o la acción disponible. El sistema calcula tokens según la regla definida (base, anticipación, racha).</li>
+          <li><strong>Resultado esperado:</strong> La tarea cambia a “entregada”, se registran tokens y se actualiza el historial/saldo del usuario.</li>
+        </ul>
+      </div>
+
+      <figure class="shot">
+        <img src="../../docs/capturas/05_tokens_recompensas.png" alt="Módulo de tokens y recompensas">
+        <figcaption>Figura 5. Módulo de tokens y recompensas.</figcaption>
+      </figure>
+      <div class="detail">
+        <h4>Descripción detallada</h4>
+        <ul>
+          <li><strong>Qué se observa:</strong> La pantalla de Tokens/Recompensas, donde se visualiza el saldo de tokens, la información de racha y el catálogo de recompensas disponibles para canje.</li>
+          <li><strong>Propósito:</strong> Motivar al estudiante mediante un sistema de recompensas por cumplimiento y constancia.</li>
+          <li><strong>Cómo se usa:</strong> El usuario consulta su saldo, revisa las recompensas y selecciona “canjear” si cuenta con tokens suficientes.</li>
+          <li><strong>Resultado esperado:</strong> Al canjear, se descuenta el costo en tokens y se registra el movimiento en el historial.</li>
+        </ul>
+      </div>
+
+      <figure class="shot">
+        <img src="../../docs/capturas/06_resumen.png" alt="Resumen y métricas">
+        <figcaption>Figura 6. Resumen y métricas de productividad.</figcaption>
+      </figure>
+      <div class="detail">
+        <h4>Descripción detallada</h4>
+        <ul>
+          <li><strong>Qué se observa:</strong> El panel de resumen con indicadores de desempeño del usuario, como tareas completadas, estado general y métricas relacionadas con la actividad.</li>
+          <li><strong>Propósito:</strong> Ofrecer una visión clara del progreso académico y del comportamiento de cumplimiento del estudiante.</li>
+          <li><strong>Cómo se usa:</strong> El usuario entra al módulo de Resumen para consultar sus estadísticas y evaluar su rendimiento.</li>
+          <li><strong>Resultado esperado:</strong> El estudiante identifica áreas de mejora (tareas vencidas, pendientes) y su nivel de avance.</li>
+        </ul>
+      </div>
+
+      <figure class="shot">
+        <img src="../../docs/capturas/07_filtro_vencidas.png" alt="Filtros en agenda">
+        <figcaption>Figura 7. Filtros y organización de tareas en la agenda.</figcaption>
+      </figure>
+      <div class="detail">
+        <h4>Descripción detallada</h4>
+        <ul>
+          <li><strong>Qué se observa:</strong> La agenda con opciones de filtrado/organización de tareas. El usuario puede enfocar la vista en un subconjunto de tareas según su necesidad.</li>
+          <li><strong>Propósito:</strong> Facilitar la priorización, por ejemplo enfocándose en tareas vencidas, pendientes o por curso.</li>
+          <li><strong>Cómo se usa:</strong> El usuario selecciona el filtro deseado (curso, estado u otro criterio disponible) y la lista se actualiza.</li>
+          <li><strong>Resultado esperado:</strong> Se muestra solo la información relevante para la decisión inmediata del usuario.</li>
+        </ul>
+      </div>
+
+      <figure class="shot">
+        <img src="../../docs/capturas/08_movil.png" alt="Vista móvil de CAPU">
+        <figcaption>Figura 8. Vista móvil responsiva del sistema.</figcaption>
+      </figure>
+      <div class="detail">
+        <h4>Descripción detallada</h4>
+        <ul>
+          <li><strong>Qué se observa:</strong> La interfaz de CAPU adaptada a un viewport móvil. Los elementos se reorganizan para mantener la usabilidad en pantallas pequeñas.</li>
+          <li><strong>Propósito:</strong> Permitir el uso del sistema desde dispositivos móviles sin perder funcionalidad esencial.</li>
+          <li><strong>Cómo se usa:</strong> El usuario accede desde el navegador del celular o reduce el tamaño de la ventana; la interfaz se ajusta automáticamente.</li>
+          <li><strong>Resultado esperado:</strong> Navegación clara, botones accesibles y contenido legible en formato móvil.</li>
+        </ul>
+      </div>
+
+      <figure class="shot">
+        <img src="../../docs/capturas/09_recordatorio.png" alt="Centro de notificaciones">
+        <figcaption>Figura 9. Centro de notificaciones y recordatorios.</figcaption>
+      </figure>
+      <div class="detail">
+        <h4>Descripción detallada</h4>
+        <ul>
+          <li><strong>Qué se observa:</strong> El módulo de notificaciones donde se concentran avisos del sistema, como recordatorios de tareas próximas, vencidas o eventos relevantes.</li>
+          <li><strong>Propósito:</strong> Mantener informado al usuario sobre sus pendientes y reducir el riesgo de olvidar entregas.</li>
+          <li><strong>Cómo se usa:</strong> El usuario entra a Notificaciones, revisa los avisos y puede marcar como leídas según las opciones disponibles.</li>
+          <li><strong>Resultado esperado:</strong> El usuario conoce sus alertas pendientes y puede tomar acción oportunamente.</li>
+        </ul>
+      </div>
+
+      <figure class="shot">
+        <img src="../../docs/capturas/10_documentacion.png" alt="Página de documentación en la aplicación">
+        <figcaption>Figura 10. Página de documentación dentro de la aplicación CAPU.</figcaption>
+      </figure>
+      <div class="detail">
+        <h4>Descripción detallada</h4>
+        <ul>
+          <li><strong>Qué se observa:</strong> La sección de Documentación integrada en la aplicación, con descripción del sistema, funcionalidades y galería de capturas.</li>
+          <li><strong>Propósito:</strong> Brindar ayuda dentro del propio sistema para que el usuario entienda rápidamente cómo usar CAPU.</li>
+          <li><strong>Cómo se usa:</strong> El usuario navega al apartado “Docs/Documentación” desde el menú inferior.</li>
+          <li><strong>Resultado esperado:</strong> El usuario consulta la guía visual sin salir de la aplicación.</li>
+        </ul>
+      </div>
     </section>
 
     <section id="problemas">
-      <h2>6. Solución de problemas</h2>
+      <h2 class="sec">6. Solución de problemas</h2>
       <table class="data">
-        <tr><th>Problema</th><th>Causa probable</th><th>Solución</th></tr>
-        <tr><td>No carga la página</td><td>Servidor no iniciado o puerto ocupado</td><td>Ejecutar <code>npm start</code> y verificar <code>http://localhost:3000</code>.</td></tr>
-        <tr><td>No sincroniza con Classroom</td><td>Faltan credenciales OAuth</td><td>Configurar <code>GOOGLE_CLIENT_ID</code> y <code>GOOGLE_CLIENT_SECRET</code> en <code>.env</code>.</td></tr>
-        <tr><td>Error al iniciar sesión con Google</td><td>Redirect URI o credenciales inválidas</td><td>Revisar configuración en Google Cloud y variables de entorno.</td></tr>
-        <tr><td>No aparecen tareas</td><td>No se ha sincronizado</td><td>Usar el botón "Sincronizar con Classroom" o verificar conexión.</td></tr>
+        <thead><tr><th>Problema</th><th>Causa probable</th><th>Solución recomendada</th></tr></thead>
+        <tbody>
+          <tr><td>La página no carga en localhost</td><td>El servidor no está iniciado o el puerto está ocupado</td><td>Ejecutar <code>npm start</code>, confirmar el puerto y abrir la URL indicada en consola.</td></tr>
+          <tr><td>No se sincronizan tareas de Classroom</td><td>Faltan credenciales OAuth o no hay conexión</td><td>Configurar <code>GOOGLE_CLIENT_ID</code> y <code>GOOGLE_CLIENT_SECRET</code> en <code>.env</code>; en demo usar el adaptador mock.</td></tr>
+          <tr><td>No puedo iniciar sesión</td><td>Credenciales incorrectas o usuario no registrado</td><td>Verificar correo/contraseña o crear una cuenta nueva.</td></tr>
+          <tr><td>No veo mis tokens actualizados</td><td>La tarea no se marcó como entregada correctamente</td><td>Completar la tarea desde la interfaz y revisar el historial de tokens.</td></tr>
+        </tbody>
       </table>
+      <div class="warn"><strong>Advertencia:</strong> Las capturas mostradas corresponden a la ejecución local del sistema en modo de demostración/prueba. En un entorno con Google Classroom real, los datos mostrados dependerán de la cuenta conectada.</div>
     </section>
 
     <section id="conclusion">
-      <h2>7. Conclusión</h2>
-      <p>CAPU cumple el objetivo de apoyar la organización académica mediante una agenda integrada con Google Classroom, alertas, seguimiento de avances y gamificación con tokens. El sistema es funcional, demostrable y cuenta con pruebas automatizadas (41/41) y documentación de soporte para su uso y entrega.</p>
-      <div class="footer">CAPU · Manual de Usuario · Gestión de Proyectos de Software · ITT 2026</div>
+      <h2 class="sec">7. Conclusión</h2>
+      <p>CAPU integra organización académica, seguimiento de tareas y gamificación en una sola plataforma web. Este manual describe su uso de forma detallada, apoyándose en capturas tomadas desde la aplicación ejecutada localmente, para que el usuario pueda comprender cada pantalla y realizar las acciones principales del sistema.</p>
+      <p>El proyecto cumple con los requisitos funcionales establecidos y cuenta con evidencia de pruebas automatizadas, documentación y paquete de entrega para la materia de Gestión de Proyectos de Software.</p>
+      <div class="footer">CAPU · Manual de Usuario · Gestión de Proyectos de Software · TecNM / ITT · 26 de noviembre de 2026</div>
     </section>
   </main>
 </body>

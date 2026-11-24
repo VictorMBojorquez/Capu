@@ -5,18 +5,29 @@ function estadoVisible(t, ahora) {
   return t.estado;
 }
 
-/** Obtener una tarea por ID con estado visible */
-function obtener(db, ahora, id) {
-  const t = db.prepare(`SELECT t.*, c.nombre AS curso FROM tarea t JOIN curso c USING (id_curso) WHERE t.id_tarea = ?`).get(id);
+/** Obtener una tarea por ID con estado visible, opcionalmente restringida a un usuario. */
+function obtener(db, ahora, id, idUsuario = null) {
+  let query = `SELECT t.*, c.nombre AS curso FROM tarea t JOIN curso c USING (id_curso) WHERE t.id_tarea = ?`;
+  const params = [id];
+  if (idUsuario !== null) {
+    query += ' AND c.id_usuario = ?';
+    params.push(idUsuario);
+  }
+  const t = db.prepare(query).get(...params);
   if (!t) return null;
   return { ...t, estado_visible: estadoVisible(t, ahora) };
 }
 
-function listar(db, ahora, { curso, estado, source } = {}) {
+/** Lista tareas; si se indica idUsuario sólo devuelve las de sus cursos. */
+function listar(db, ahora, { curso, estado, source } = {}, idUsuario = null) {
   let query = `SELECT t.*, c.nombre AS curso FROM tarea t JOIN curso c USING (id_curso)`;
   const params = [];
   const where = [];
 
+  if (idUsuario !== null) {
+    where.push('c.id_usuario = ?');
+    params.push(idUsuario);
+  }
   if (curso) {
     where.push('t.id_curso = ?');
     params.push(curso);
@@ -38,12 +49,13 @@ function listar(db, ahora, { curso, estado, source } = {}) {
     .filter((t) => !estado || t.estado_visible === estado);
 }
 
-function actualizarAvance(db, id, avance) {
+function actualizarAvance(db, id, avance, idUsuario = null) {
   const n = Number(avance);
   if (!Number.isInteger(n) || n < 0 || n > 100)
     throw Object.assign(new Error('El avance debe ser un entero entre 0 y 100'), { status: 400 });
-  const t = db.prepare('SELECT estado FROM tarea WHERE id_tarea = ?').get(id);
-  if (!t) throw Object.assign(new Error('Tarea no encontrada'), { status: 404 });
+  const t = db.prepare(`SELECT t.estado, c.id_usuario FROM tarea t JOIN curso c USING (id_curso) WHERE t.id_tarea = ?`).get(id);
+  if (!t || (idUsuario !== null && t.id_usuario !== idUsuario))
+    throw Object.assign(new Error('Tarea no encontrada'), { status: 404 });
   if (t.estado === 'entregada') throw Object.assign(new Error('La tarea ya fue entregada'), { status: 409 });
   db.prepare('UPDATE tarea SET avance_pct = ?, estado = ? WHERE id_tarea = ?').run(n, n > 0 ? 'en_progreso' : 'pendiente', id);
 }
@@ -87,12 +99,12 @@ function actualizarTareaCustom(db, userId, tareaId, { titulo, descripcion, fecha
   if (fecha_limite !== undefined) { updates.push('fecha_limite = ?'); params.push(fecha_limite); }
   if (id_curso !== undefined) { updates.push('id_curso = ?'); params.push(id_curso); }
 
-  if (updates.length === 0) return obtener(db, new Date().toISOString(), tareaId);
+  if (updates.length === 0) return obtener(db, new Date().toISOString(), tareaId, userId);
 
   params.push(tareaId);
   db.prepare(`UPDATE tarea SET ${updates.join(', ')} WHERE id_tarea = ?`).run(...params);
 
-  return obtener(db, new Date().toISOString(), tareaId);
+  return obtener(db, new Date().toISOString(), tareaId, userId);
 }
 
 /** Eliminar una tarea personalizada */
@@ -110,12 +122,12 @@ function eliminarTareaCustom(db, userId, tareaId) {
 
 /** Listar tareas personalizadas del usuario */
 function listarTareasCustom(db, userId, filtros = {}) {
-  return listar(db, new Date().toISOString(), { ...filtros, source: 'custom' });
+  return listar(db, new Date().toISOString(), { ...filtros, source: 'custom' }, userId);
 }
 
 /** Indicadores de seguimiento del producto (Plan de Calidad, sección 13.2). */
 function metricas(db, ahora, idUsuario = 1) {
-  const tareas = listar(db, ahora);
+  const tareas = listar(db, ahora, {}, idUsuario);
   const entregadas = tareas.filter((t) => t.estado === 'entregada');
   const aTiempo = entregadas.filter((t) => new Date(t.fecha_entrega) <= new Date(t.fecha_limite));
   const u = db.prepare('SELECT saldo_tokens, racha_dias FROM usuario WHERE id_usuario = ?').get(idUsuario);

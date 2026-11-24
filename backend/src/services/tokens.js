@@ -40,10 +40,11 @@ function nuevaRacha(ultimaFecha, rachaActual, hoy) {
  */
 function registrarEntrega(db, idTarea, fechaEntrega, { actualizarRacha = true, idUsuario = 1 } = {}) {
   return transaction(db, () => {
-    const tarea = db.prepare('SELECT * FROM tarea WHERE id_tarea = ?').get(idTarea);
-    if (!tarea) throw Object.assign(new Error('Tarea no encontrada'), { status: 404 });
+    const tarea = db.prepare(`SELECT t.*, c.id_usuario FROM tarea t JOIN curso c USING (id_curso) WHERE t.id_tarea = ?`).get(idTarea);
+    if (!tarea || tarea.id_usuario !== idUsuario) throw Object.assign(new Error('Tarea no encontrada'), { status: 404 });
     if (tarea.estado === 'entregada') throw Object.assign(new Error('La tarea ya fue entregada'), { status: 409 });
     const u = db.prepare('SELECT * FROM usuario WHERE id_usuario = ?').get(idUsuario);
+    if (!u) throw Object.assign(new Error('Usuario no encontrado'), { status: 404 });
     const entrega = new Date(fechaEntrega).toISOString();
     const premio = calcularTokens({ fechaLimite: tarea.fecha_limite, fechaEntrega: entrega, racha: u.racha_dias });
     let racha = u.racha_dias, ultima = u.ultima_entrega_ok;
@@ -68,6 +69,7 @@ function canjear(db, idRecompensa, fecha, idUsuario = 1) {
     const rec = db.prepare('SELECT * FROM recompensa WHERE id_recompensa = ? AND activa = 1').get(idRecompensa);
     if (!rec) throw Object.assign(new Error('Recompensa no disponible'), { status: 404 });
     const u = db.prepare('SELECT saldo_tokens FROM usuario WHERE id_usuario = ?').get(idUsuario);
+    if (!u) throw Object.assign(new Error('Usuario no encontrado'), { status: 404 });
     if (u.saldo_tokens < rec.costo_tokens)
       throw Object.assign(new Error(`Tokens insuficientes (faltan ${rec.costo_tokens - u.saldo_tokens})`), { status: 422 });
     const f = new Date(fecha).toISOString();

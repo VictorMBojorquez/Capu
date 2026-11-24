@@ -8,8 +8,14 @@ function calcularRecordatorios(fechaLimite, ahora, horas = ANTICIPACIONES_HORAS)
 }
 
 /** Crea los recordatorios faltantes de las tareas no entregadas. Devuelve cuántos creó. */
-function programarRecordatorios(db, ahora, horas) {
-  const tareas = db.prepare("SELECT id_tarea, fecha_limite FROM tarea WHERE estado != 'entregada'").all();
+function programarRecordatorios(db, ahora, horas, idUsuario = null) {
+  const params = [];
+  let filtro = '';
+  if (idUsuario !== null) {
+    filtro = ' AND id_curso IN (SELECT id_curso FROM curso WHERE id_usuario = ?)';
+    params.push(idUsuario);
+  }
+  const tareas = db.prepare(`SELECT id_tarea, fecha_limite FROM tarea WHERE estado != 'entregada'${filtro}`).all(...params);
   const ins = db.prepare('INSERT OR IGNORE INTO recordatorio (id_tarea, fecha_hora, canal) VALUES (?,?,?)');
   let creados = 0;
   for (const t of tareas)
@@ -19,15 +25,21 @@ function programarRecordatorios(db, ahora, horas) {
 }
 
 /** Recordatorios que ya debieron enviarse, de tareas aún no entregadas. */
-function pendientes(db, ahora) {
+function pendientes(db, ahora, idUsuario = null) {
+  const params = [new Date(ahora).toISOString()];
+  let filtro = '';
+  if (idUsuario !== null) {
+    filtro = ' AND c.id_usuario = ?';
+    params.push(idUsuario);
+  }
   return db.prepare(`SELECT r.id_recordatorio, r.fecha_hora, r.canal, t.id_tarea, t.titulo, t.fecha_limite, c.nombre AS curso
     FROM recordatorio r JOIN tarea t USING (id_tarea) JOIN curso c USING (id_curso)
-    WHERE r.enviado = 0 AND r.fecha_hora <= ? AND t.estado != 'entregada' ORDER BY r.fecha_hora`).all(new Date(ahora).toISOString());
+    WHERE r.enviado = 0 AND r.fecha_hora <= ? AND t.estado != 'entregada'${filtro} ORDER BY r.fecha_hora`).all(...params);
 }
 
 /** Marca como enviados (el envío real Web Push/correo se implementa en la Etapa III). */
-function procesar(db, ahora) {
-  const lista = pendientes(db, ahora);
+function procesar(db, ahora, idUsuario = null) {
+  const lista = pendientes(db, ahora, idUsuario);
   const up = db.prepare('UPDATE recordatorio SET enviado = 1 WHERE id_recordatorio = ?');
   lista.forEach((r) => up.run(r.id_recordatorio));
   return lista;

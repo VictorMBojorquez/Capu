@@ -37,7 +37,7 @@ async function sincronizar(db, adaptador, ahora, idUsuario = 1) {
         }
       }
     }
-    const recordatorios = programarRecordatorios(db, ahora);
+    const recordatorios = programarRecordatorios(db, ahora, undefined, idUsuario);
     return { cursos: cursos.length, nuevas, actualizadas, entregasDetectadas, recordatorios };
   });
 }

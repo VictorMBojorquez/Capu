@@ -7,10 +7,16 @@ const H = 3600e3;
  * No duplica los recordatorios programados en la base (RF-06), que quedan listos
  * para el envío real (push/correo) en una etapa posterior.
  */
-function generar(db, ahora) {
+function generar(db, ahora, idUsuario = null) {
   const t0 = new Date(ahora).getTime();
+  const params = [];
+  let where = `t.estado != 'entregada'`;
+  if (idUsuario !== null) {
+    where += ' AND c.id_usuario = ?';
+    params.push(idUsuario);
+  }
   const filas = db.prepare(`SELECT t.*, c.nombre AS curso FROM tarea t JOIN curso c USING (id_curso)
-    WHERE t.estado != 'entregada' ORDER BY t.fecha_limite`).all();
+    WHERE ${where} ORDER BY t.fecha_limite`).all(...params);
   return filas.flatMap((t) => {
     const faltan = new Date(t.fecha_limite).getTime() - t0;
     if (faltan < 0)

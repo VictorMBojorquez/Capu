@@ -193,6 +193,7 @@ const pages = {
   perfil: { init: loadPerfil, cleanup: () => {} },
   calendario: { init: loadCalendario, cleanup: () => {} },
   notificaciones: { init: loadNotificaciones, cleanup: () => {} },
+  documentacion: { init: loadDocumentacion, cleanup: () => {} },
   'admin-usuarios': { init: loadAdminUsuarios, cleanup: () => {} },
   'admin-cursos': { init: loadAdminCursos, cleanup: () => {} },
   'admin-recompensas': { init: loadAdminRecompensas, cleanup: () => {} },
@@ -3233,6 +3234,14 @@ async function loadNotificaciones() {
   notificationState.currentTab = 'todas';
   await loadNotificationsForTab('todas');
   attachNotificationListeners();
+}
+
+/** Página de Documentación: contenido estático con capturas del sistema. */
+async function loadDocumentacion() {
+  const root = document.getElementById('page-documentacion');
+  if (!root) return;
+  // El contenido está declarado en el HTML; aquí se asegura el estado de la página.
+  root.hidden = false;
 }
 
 function attachNotificationListeners() {

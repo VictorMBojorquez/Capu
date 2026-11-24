@@ -1922,3 +1922,12 @@ img { max-width: 100%; height: auto; display: block; }
   .main { margin: 0; padding: 0; }
   .task-card, .card, .stat-card { break-inside: avoid; box-shadow: none; border: 1px solid #ccc; }
 }
+
+/* Documentación (página) */
+.doc-section { margin-top: var(--space-6); }
+.card__title { font-size: var(--text-lg); font-weight: 700; margin: 0; }
+.doc-list { padding-left: var(--space-5); display: grid; gap: var(--space-2); }
+.doc-gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-4); }
+.doc-figure { margin: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.doc-screenshot { width: 100%; height: auto; border-radius: var(--radius-md); border: 1px solid var(--color-border); display: block; background: var(--color-bg-secondary); }
+.doc-figure figcaption { font-size: var(--text-sm); color: var(--color-text-secondary); text-align: center; }

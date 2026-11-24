@@ -91,6 +91,7 @@
       <li><a href="#tokens" class="bottom-nav__item" data-page="tokens" role="menuitem"><svg class="bottom-nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><span>Tokens</span></a></li>
       <li><a href="#resumen" class="bottom-nav__item" data-page="resumen" role="menuitem"><svg class="bottom-nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span>Resumen</span></a></li>
       <li><a href="#perfil" class="bottom-nav__item" data-page="perfil" role="menuitem"><svg class="bottom-nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a></li>
+      <li><a href="#documentacion" class="bottom-nav__item" data-page="documentacion" role="menuitem"><svg class="bottom-nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 0 4 19.5v-15A2.5 2.5 0 0 0 4 2z"/></svg><span>Docs</span></a></li>
     </ul>
   </nav>
 
@@ -448,6 +449,80 @@
             <span>Más activo</span>
           </div>
         </article>
+      </section>
+    </section>
+
+    <!-- Page: Documentación -->
+    <section id="page-documentacion" class="page" hidden role="region" aria-label="Documentación del sistema">
+      <header class="page__header">
+        <div class="page__title-group">
+          <h1 class="page__title">Documentación</h1>
+          <p class="page__subtitle">Guía, referencias y evidencias del sistema CAPU</p>
+        </div>
+      </header>
+
+      <div class="content-grid content-grid--2">
+        <article class="card">
+          <div class="card__header"><h2 class="card__title">¿Qué es CAPU?</h2></div>
+          <div class="card__body">
+            <p>Agenda inteligente con recordatorios y recompensas (tokens), integrada a Google Classroom. Ayuda a los estudiantes a organizar tareas, registrar avances, recibir alertas y motivarse con recompensas.</p>
+          </div>
+        </article>
+        <article class="card">
+          <div class="card__header"><h2 class="card__title">Funcionalidades principales</h2></div>
+          <div class="card__body">
+            <ul class="doc-list">
+              <li><strong>Agenda:</strong> tareas de Classroom, filtros por curso/estado, calendario.</li>
+              <li><strong>Sincronización:</strong> cursos, tareas y entregas desde Google Classroom (OAuth + PKCE).</li>
+              <li><strong>Entregas y tokens:</strong> registro de entregas, bonos, racha, recompensas.</li>
+              <li><strong>Alertas y recordatorios:</strong> vencidas, próximas (≤24 h), recordatorios programados.</li>
+              <li><strong>Notificaciones:</strong> centro de notificaciones y preferencias.</li>
+              <li><strong>Documentación:</strong> esta guía con capturas.</li>
+            </ul>
+          </div>
+        </article>
+      </div>
+
+      <section class="doc-section" aria-labelledby="doc-capturas-titulo">
+        <h2 id="doc-capturas-titulo" class="page__title" style="font-size: var(--text-xl); margin-bottom: var(--space-4);">Capturas de pantalla</h2>
+        <div class="doc-gallery">
+          <figure class="doc-figure">
+            <img class="doc-screenshot" src="/capturas/01_estado_inicial.png" alt="Captura de pantalla: estado inicial de CAPU">
+            <figcaption>Estado inicial</figcaption>
+          </figure>
+          <figure class="doc-figure">
+            <img class="doc-screenshot" src="/capturas/02_agenda_sincronizada.png" alt="Captura de pantalla: agenda sincronizada con Classroom">
+            <figcaption>Agenda sincronizada</figcaption>
+          </figure>
+          <figure class="doc-figure">
+            <img class="doc-screenshot" src="/capturas/03_avance_guardado.png" alt="Captura de pantalla: avance de tarea guardado">
+            <figcaption>Avance de tarea</figcaption>
+          </figure>
+          <figure class="doc-figure">
+            <img class="doc-screenshot" src="/capturas/04_tarea_entregada_tokens.png" alt="Captura de pantalla: tarea entregada y tokens otorgados">
+            <figcaption>Tarea entregada y tokens</figcaption>
+          </figure>
+          <figure class="doc-figure">
+            <img class="doc-screenshot" src="/capturas/05_tokens_recompensas.png" alt="Captura de pantalla: tokens y recompensas">
+            <figcaption>Tokens y recompensas</figcaption>
+          </figure>
+          <figure class="doc-figure">
+            <img class="doc-screenshot" src="/capturas/06_resumen.png" alt="Captura de pantalla: resumen y analíticas">
+            <figcaption>Resumen</figcaption>
+          </figure>
+          <figure class="doc-figure">
+            <img class="doc-screenshot" src="/capturas/07_filtro_vencidas.png" alt="Captura de pantalla: filtro de tareas vencidas">
+            <figcaption>Filtro de vencidas</figcaption>
+          </figure>
+          <figure class="doc-figure">
+            <img class="doc-screenshot" src="/capturas/08_movil.png" alt="Captura de pantalla: vista móvil">
+            <figcaption>Vista móvil</figcaption>
+          </figure>
+          <figure class="doc-figure">
+            <img class="doc-screenshot" src="/capturas/09_recordatorio.png" alt="Captura de pantalla: recordatorio">
+            <figcaption>Recordatorio</figcaption>
+          </figure>
+        </div>
       </section>
     </section>
 

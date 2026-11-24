@@ -1,7 +1,7 @@
 // CAPU Service Worker - PWA/Offline Support (Fase 9)
-const CACHE_NAME = 'capu-v1';
-const STATIC_CACHE = 'capu-static-v1';
-const API_CACHE = 'capu-api-v1';
+const CACHE_NAME = 'capu-v2';
+const STATIC_CACHE = 'capu-static-v2';
+const API_CACHE = 'capu-api-v2';
 
 // Assets to cache immediately
 const STATIC_ASSETS = [

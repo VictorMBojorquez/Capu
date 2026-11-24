@@ -15,7 +15,7 @@ const usuario = require('./services/usuario');
 const auth = require('./services/auth');
 const notificaciones = require('./services/notificaciones');
 const email = require('./services/email');
-const { authMiddleware } = require('./services/jwt');
+const { authMiddleware, generateToken } = require('./services/jwt');
 const { RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX_REQUESTS } = require('./config/env');
 const mockAdapter = require('./services/classroom/mock');
 const googleAdapter = require('./services/classroom/google');
@@ -282,15 +282,16 @@ function createApp(db = openDb()) {
 
       if (identidad?.email) {
         // Buscar si ya existe un usuario con este email
-        const existing = db.prepare('SELECT id_usuario, auth_provider FROM usuario WHERE correo = ?').get(identidad.email.toLowerCase());
+        const existing = db.prepare('SELECT id_usuario, auth_provider, correo, rol FROM usuario WHERE correo = ?').get(identidad.email.toLowerCase());
         if (existing) {
           // Si existe con auth_provider='email', vincular Google
           if (existing.auth_provider === 'email') {
             await auth.vincularGoogle(db, existing.id_usuario, identidad.sub);
           }
-          // Guardar credencial y redirigir
+          // Guardar credencial y redirigir con sesión iniciada
           oauth.guardar(db, existing.id_usuario, t, now());
-          return res.redirect(302, '/?classroom=ok');
+          const jwt = generateToken({ sub: existing.id_usuario, correo: existing.correo, rol: existing.rol });
+          return res.redirect(302, `/?google_token=${encodeURIComponent(jwt)}`);
         }
 
         // Si no existe, crear nuevo usuario con Google
@@ -299,13 +300,14 @@ function createApp(db = openDb()) {
         const google_id = identidad.sub;
 
         const result = db.prepare(`
-          INSERT INTO usuario (google_id, nombre, correo, auth_provider, rol, saldo_tokens, racha_dias, verificado)
+          INSERT INTO usuario (google_id, nombre, correo, auth_provider, rol, saldo_tokens, racha_dias, email_verificado)
           VALUES (?, ?, ?, 'google', 'estudiante', 0, 0, 1)
         `).run(google_id, nombre, correo);
 
         const newUserId = result.lastInsertRowid;
         oauth.guardar(db, newUserId, t, now());
-        return res.redirect(302, '/?classroom=ok');
+        const jwt = generateToken({ sub: newUserId, correo, rol: 'estudiante' });
+        return res.redirect(302, `/?google_token=${encodeURIComponent(jwt)}`);
       }
 
       // Si no hay email en la identidad, error
@@ -348,13 +350,13 @@ function createApp(db = openDb()) {
   app.post('/api/sync', authMiddleware(db), wrap(async (req) => {
     const token = req.get('x-google-token') || await oauth.tokenValido(db, req.user.id_usuario, now());
     const adaptador = token ? googleAdapter(token) : mockAdapter(now());
-    return { adaptador: adaptador.nombre, ...(await sincronizar(db, adaptador, now())) };
+    return { adaptador: adaptador.nombre, ...(await sincronizar(db, adaptador, now(), req.user.id_usuario)) };
   }));
 
   // ============================================================
   // RF-04: Agenda con filtros (Protected with JWT)
   // ============================================================
-  app.get('/api/cursos', authMiddleware(db), wrap(async (req) => db.prepare('SELECT id_curso, nombre FROM curso ORDER BY nombre').all()));
+  app.get('/api/cursos', authMiddleware(db), wrap(async (req) => db.prepare('SELECT id_curso, nombre FROM curso WHERE id_usuario = ? ORDER BY nombre').all(req.user.id_usuario)));
 
   // ============================================================
   // Tareas Personalizadas (Custom Tasks) - MUST come before /api/tareas/:id
@@ -372,9 +374,9 @@ function createApp(db = openDb()) {
   return tareas.calendario(db, mes, req.user.id_usuario);
 }));
 
-app.get('/api/tareas', authMiddleware(db), wrap(async (req) => tareas.listar(db, now(), { curso: req.query.curso, estado: req.query.estado, source: req.query.source })));
+app.get('/api/tareas', authMiddleware(db), wrap(async (req) => tareas.listar(db, now(), { curso: req.query.curso, estado: req.query.estado, source: req.query.source }, req.user.id_usuario)));
   app.get('/api/tareas/:id', authMiddleware(db), wrap(async (req) => {
-    const tarea = tareas.obtener(db, now(), Number(req.params.id));
+    const tarea = tareas.obtener(db, now(), Number(req.params.id), req.user.id_usuario);
     if (!tarea) throw { status: 404, message: 'Tarea no encontrada' };
     return tarea;
   }));
@@ -383,7 +385,7 @@ app.get('/api/tareas', authMiddleware(db), wrap(async (req) => tareas.listar(db,
   // RF-05: Seguimiento de avance (Protected with JWT)
   // ============================================================
   app.patch('/api/tareas/:id', authMiddleware(db), wrap(async (req) => {
-    tareas.actualizarAvance(db, Number(req.params.id), req.body.avance_pct);
+    tareas.actualizarAvance(db, Number(req.params.id), req.body.avance_pct, req.user.id_usuario);
     return { ok: true };
   }));
 
@@ -395,9 +397,9 @@ app.get('/api/tareas', authMiddleware(db), wrap(async (req) => tareas.listar(db,
   // ============================================================
   // RF-06: Recordatorios y alertas (Protected with JWT)
   // ============================================================
-  app.get('/api/recordatorios/pendientes', authMiddleware(db), wrap(async (req) => reminders.pendientes(db, now())));
-  app.post('/api/recordatorios/procesar', authMiddleware(db), wrap(async () => ({ enviados: reminders.procesar(db, now()) })));
-  app.get('/api/alertas', authMiddleware(db), wrap(async () => alertas.generar(db, now())));
+  app.get('/api/recordatorios/pendientes', authMiddleware(db), wrap(async (req) => reminders.pendientes(db, now(), req.user.id_usuario)));
+  app.post('/api/recordatorios/procesar', authMiddleware(db), wrap(async (req) => ({ enviados: reminders.procesar(db, now(), req.user.id_usuario) })));
+  app.get('/api/alertas', authMiddleware(db), wrap(async (req) => alertas.generar(db, now(), req.user.id_usuario)));
 
   // ============================================================
   // Notificaciones (Centro de Notificaciones - Fase 4)
@@ -430,12 +432,12 @@ app.get('/api/tareas', authMiddleware(db), wrap(async (req) => tareas.listar(db,
     historial: db.prepare('SELECT * FROM transaccion_token WHERE id_usuario = ? ORDER BY fecha DESC, id_transaccion DESC LIMIT 50').all(req.user.id_usuario),
   })));
   app.get('/api/recompensas', authMiddleware(db), wrap(async () => db.prepare('SELECT * FROM recompensa WHERE activa = 1 ORDER BY costo_tokens').all()));
-  app.post('/api/recompensas/:id/canjear', authMiddleware(db), wrap(async (req) => tokens.canjear(db, Number(req.params.id), now())));
+  app.post('/api/recompensas/:id/canjear', authMiddleware(db), wrap(async (req) => tokens.canjear(db, Number(req.params.id), now(), req.user.id_usuario)));
 
   // ============================================================
   // RF-12: Indicadores (Protected with JWT)
   // ============================================================
-  app.get('/api/metricas', authMiddleware(db), wrap(async (req) => tareas.metricas(db, now())));
+  app.get('/api/metricas', authMiddleware(db), wrap(async (req) => tareas.metricas(db, now(), req.user.id_usuario)));
 
   // ============================================================
   // ADMIN ROUTES (require admin role)

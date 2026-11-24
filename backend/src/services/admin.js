@@ -244,15 +244,14 @@ function saveOAuthConfig(db, { client_id, client_secret, redirect_uri, sync_minu
  */
 async function testOAuthConnection(config) {
   if (!config.client_id) throw new Error('Client ID no configurado');
+  if (!/\.apps\.googleusercontent\.com$/.test(config.client_id))
+    throw new Error('El Client ID no tiene el formato esperado (*.apps.googleusercontent.com)');
 
-  // Hacer una petición de prueba a Google
-  const fetch = (await import('node:fetch')).default;
-  const testUrl = `https://www.googleapis.com/oauth2/v3/tokeninfo?client_id=${encodeURIComponent(config.client_id)}`;
-
+  // Verificar conectividad con el endpoint de descubrimiento de Google.
   try {
-    const res = await fetch(testUrl);
-    if (!res.ok) throw new Error('Client ID inválido o no accesible');
-    return { ok: true, message: 'Conexión exitosa con Google OAuth' };
+    const res = await fetch('https://accounts.google.com/.well-known/openid-configuration');
+    if (!res.ok) throw new Error(`Google respondió ${res.status}`);
+    return { ok: true, message: 'Conectividad con Google OAuth verificada y formato de Client ID válido' };
   } catch (e) {
     throw new Error(`Error de conexión: ${e.message}`);
   }

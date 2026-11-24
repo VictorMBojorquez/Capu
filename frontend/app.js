@@ -3498,6 +3498,16 @@ function refreshCurrentPage() {
 async function initApp() {
   initTheme();
 
+  // Sesión iniciada desde Google: el callback redirige con ?google_token=<jwt>.
+  const params = new URLSearchParams(location.search);
+  const googleToken = params.get('google_token');
+  if (googleToken) {
+    setAuthToken(googleToken);
+    params.delete('google_token');
+    const limpio = location.pathname + (params.toString() ? `?${params}` : '') + location.hash;
+    history.replaceState(null, '', limpio);
+  }
+
   // Check auth state - validate JWT token from localStorage
   const user = await validateToken();
 

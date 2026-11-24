@@ -1,0 +1,34 @@
+
+> capu@0.2.0 test
+> node --test --test-reporter=spec "tests/*.test.js"
+
+✔ GET /api/health responde correctamente (51.180738ms)
+✔ POST /api/sync importa cursos y tareas, y es repetible sin duplicar (36.076276ms)
+✔ la sincronización registra entregas hechas en Classroom y otorga tokens (9.707619ms)
+✔ las tareas con fecha pasada y sin entrega se muestran como vencidas (9.404356ms)
+✔ PATCH avance valida el rango y cambia el estado a en_progreso (88.088137ms)
+✔ completar una tarea otorga tokens y una segunda vez responde 409 (44.060345ms)
+✔ canjear una recompensa con saldo insuficiente devuelve 422 (7.647177ms)
+✔ rutas inexistentes devuelven 404 en formato JSON (2.80527ms)
+✔ adaptador de Google: transforma la respuesta de la API (con fetch simulado) (1.479703ms)
+✔ genera recordatorios a 24 h y 3 h antes de la fecha límite (1.77401ms)
+✔ descarta recordatorios que ya pasaron (0.22849ms)
+✔ programar es idempotente y procesar marca como enviados (1.955276ms)
+✔ no hay recordatorios pendientes de tareas ya entregadas (1.123713ms)
+✔ entrega a tiempo sin anticipación otorga 10 tokens (1.450513ms)
+✔ entrega con 24 h o más de anticipación suma 5 tokens (0.274272ms)
+✔ el bono por racha se limita a 5 tokens (0.163522ms)
+✔ entrega tardía no otorga tokens (0.153657ms)
+✔ la entrega exactamente en la fecha límite cuenta como a tiempo (1.379251ms)
+✔ racha: consecutiva si la última entrega fue ayer, se reinicia si no (0.233747ms)
+✔ registrarEntrega actualiza saldo, racha e historial (2.392767ms)
+✔ no se premia dos veces la misma tarea (1.460247ms)
+✔ canje: descuenta tokens y rechaza si el saldo es insuficiente (1.789382ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 522.841524

@@ -1,0 +1,11 @@
+$ curl /api/health
+{"ok":true,"version":"0.2.0","ahora":"2026-10-16T00:00:00.000Z"}
+
+$ curl /api/metricas
+{"total":7,"entregadas":3,"a_tiempo":3,"porcentaje_a_tiempo":100,"pendientes":3,"vencidas":1,"saldo_tokens":20,"tokens_ganados":40,"racha_dias":1}
+
+$ curl /api/recompensas
+[{"id_recompensa":1,"nombre":"Tema oscuro para la agenda","costo_tokens":20,"activa":1},{"id_recompensa":2,"nombre":"Insignia “Madrugador”","costo_tokens":35,"activa":1},{"id_recompensa":3,"nombre":"Avatar de Capu con gorro","costo_tokens":50,"activa":1},{"id_recompensa":4,"nombre":"Pausa de racha (1 día)","costo_tokens":80,"activa":1}]
+
+$ curl -X POST /api/recordatorios/procesar
+{"enviados":[{"id_recordatorio":4,"fecha_hora":"2026-10-15T23:00:00.000Z","canal":"push","id_tarea":6,"titulo":"Subnetting: hoja de ejercicios","fecha_limite":"2026-10-16T23:00:00.000Z","curso":"Redes de Computadoras"}]}

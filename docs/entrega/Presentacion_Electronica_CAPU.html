@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>CAPU · Presentación Electrónica — Entrega Final</title>
+<style>
+  :root { --bg:#0f172a; --txt:#e2e8f0; --accent:#38bdf8; --accent2:#818cf8; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--txt); font-family:'Segoe UI',system-ui,sans-serif; }
+  .slide { min-height:100vh; display:flex; flex-direction:column; justify-content:center; padding:6vw; }
+  h1 { font-size:5vw; margin-bottom:2vh; }
+  h2 { font-size:3.4vw; color:var(--accent); margin-bottom:4vh; }
+  .sub { font-size:2vw; opacity:.85; }
+  ul { font-size:2.1vw; line-height:1.7; padding-left:4vw; }
+  .foot { margin-top:6vh; font-size:1.4vw; opacity:.6; }
+  .center { text-align:center; }
+</style>
+</head>
+<body>
+  <section class="slide center">
+    <h1>CAPU</h1>
+    <p class="sub">Agenda inteligente con recordatorios y recompensas (tokens), integrada a Google Classroom</p>
+    <p class="sub">Proyecto Integrador · Gestión de Proyectos de Software</p>
+    <p class="sub">Tecnológico Nacional de México · Instituto Tecnológico de Tijuana</p>
+    <p class="foot">Entrega final · Fecha: 26 de noviembre de 2026 · Modalidad: Trabajo en equipo</p>
+  </section>
+
+  <section class="slide">
+    <h2>1 · Presentación del proyecto</h2>
+    <p class="sub">Problema que busca resolver</p>
+    <ul>
+      <li>La procrastinación y la desorganización académica dificultan gestionar el tiempo.</li>
+      <li>Falta un espacio que integre tareas, recordatorios, seguimiento y motivación.</li>
+      <li>Objetivo: optimizar la gestión del tiempo académico mediante recordatorios automáticos, seguimiento de avances y recompensas con tokens.</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <h2>2 · Solución propuesta</h2>
+    <ul>
+      <li>Agenda inteligente con recordatorios y recompensas (tokens).</li>
+      <li>Integración con Google Classroom (OAuth 2.0 + PKCE, lectura de cursos/tareas/entregas).</li>
+      <li>Alertas (urgente/vencida), recordatorios programados, preferencias.</li>
+      <li>Gamificación: tokens por entrega, racha, bonos, recompensas canjeables.</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <h2>3 · Gestión del proyecto</h2>
+    <ul>
+      <li>Metodología por etapas (I a V) con seguimiento en GitHub.</li>
+      <li>Plan de calidad, requerimientos (RF-01…RF-12) y criterios de calidad.</li>
+      <li>Control de cambios, cronograma y evidencias de seguimiento.</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <h2>4 · Desarrollo</h2>
+    <ul>
+      <li>Tecnologías: Node.js/Express/SQLite, HTML/CSS/JS, PWA, Google Classroom API.</li>
+      <li>Herramientas: Git, GitHub, Node.js nativo de tests, SQLite.</li>
+      <li>Dificultades: credenciales Google reales, Web Push real pendiente, aislamiento multiusuario.</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <h2>5 · Supervisión y pruebas</h2>
+    <ul>
+      <li>Pruebas automatizadas: <strong>41/41 en verde</strong> (node --test).</li>
+      <li>Errores detectados y corregidos: aislamiento multiusuario, flujo OAuth, admin.</li>
+      <li>Correcciones verificadas con nuevas pruebas de aislamiento.</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <h2>6 · Demostración</h2>
+    <ul>
+      <li>Inicio de sesión (email/password y Google Classroom).</li>
+      <li>Sincronización de cursos/tareas/entregas (mock y Google real).</li>
+      <li>Agenda, avances, entregas con tokens, alertas, recordatorios, canjes.</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <h2>7 · Resultados y conclusiones</h2>
+    <ul>
+      <li>Sistema funcional, demostrable y completo (RF-01 a RF-12).</li>
+      <li>Evidencias: bitácoras, pruebas, manual, capturas, presentación.</li>
+      <li>Mejoras futuras: Web Push real, validación con credenciales Google reales.</li>
+    </ul>
+  </section>
+</body>
+</html>
